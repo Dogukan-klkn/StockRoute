@@ -1,15 +1,17 @@
-# Implementation Plan — InvenFlow
+# Implementation Plan — StockRoute
 
 ### Çok Kiracılı (Multi-Tenant) Kurumsal Envanter & Kaynak Yönetim Sistemi
 
-> **Proje Kod Adı:** InvenFlow
+> **Proje Kod Adı:** StockRoute
 > **Stajyer:** Doğukan
 > **Süre:** 20 iş günü (4 hafta)
-> **Repo Modeli:** Monorepo (backend + web + mobile + shared packages tek repoda)
-> **Doküman Sürümü:** v2.0 (Revize — "anayasa" seviyesi tam detay)
+> **Repo Modeli:** Monorepo (backend + web + mobile + shared packages tek repoda), Dockerize
+> **Doküman Sürümü:** v3.0 (Docker + Scalar + marka/logo + GenAI mockup entegrasyonu)
 > **Doküman Türü:** Implementation Plan / Tek Doğruluk Kaynağı (Single Source of Truth)
 
-> **Bu dokümanın amacı:** Projenin tamamını gri nokta bırakmadan tanımlamaktır. Dizin yapısı, veri modeli, API sözleşmesi, real-time olaylar, tasarım sistemi ve ekran mockup'ları burada nettir; geliştirme (insan veya AI) bu plana birebir uyarak ilerler. Plandan sapma gerekirse önce bu doküman güncellenir, sonra kod yazılır.
+> **Bu dokümanın amacı:** Projenin tamamını gri nokta bırakmadan tanımlamaktır. Dizin yapısı, veri modeli, API sözleşmesi, real-time olaylar, tasarım sistemi, ekran mockup'ları ve dağıtım (Docker) burada nettir; geliştirme (insan veya AI) bu plana birebir uyarak ilerler. Plandan sapma gerekirse önce bu doküman güncellenir, sonra kod yazılır.
+
+> **v3.0 değişiklikleri:** (1) Tüm sistem **Dockerize** edilir. (2) API dokümantasyonu **Swagger UI yerine Scalar** ile sunulur. (3) **1:1 uygulama logosu** ve **GenAI ile üretilen ekran mockup'ları** eklenir. (4) Tüm marka/tasarım `.md` çalışmaları **`docs/` altında konularına göre** tutulur. (5) Proje adı repoyla uyumlu olacak şekilde **StockRoute** olarak hizalandı.
 
 ---
 
@@ -23,27 +25,29 @@
 6. Mimari Tasarım
 7. Veri Modeli (Tam Prisma Şeması)
 8. RBAC — Rol/Yetki Matrisi
-9. API Sözleşmesi (Tüm Endpoint'ler)
+9. API Sözleşmesi & Dokümantasyon (Scalar)
 10. Gerçek Zamanlı Olay Kataloğu
-11. Tasarım Sistemi & Marka (Renk / Logo / Tipografi / Asset)
-12. Ekran Envanteri & Mockup'lar
-13. Ortam Değişkenleri (.env)
-14. Kodlama Standartları & Hata Yönetimi
-15. Test Stratejisi
-16. 20 İş Günlük Yol Haritası
-17. Haftalık Sprint Özeti
-18. Git Workflow & PR Süreci
-19. GitHub Projects Board & Issue Yönetimi
-20. Daily Standup
-21. Risk Yönetimi
-22. Definition of Done
-23. Teslim Edilecekler
+11. Tasarım Sistemi & Marka (Logo / Renk / Tipografi)
+12. Ekran Envanteri & Mockup'lar (GenAI)
+13. Dockerizasyon & Çalıştırma
+14. Ortam Değişkenleri (.env)
+15. Kodlama Standartları & Hata Yönetimi
+16. Test Stratejisi
+17. Dokümantasyon Yapısı (docs/)
+18. 20 İş Günlük Yol Haritası
+19. Haftalık Sprint Özeti
+20. Git Workflow & PR Süreci
+21. GitHub Projects Board & Issue Yönetimi
+22. Daily Standup
+23. Risk Yönetimi
+24. Definition of Done
+25. Teslim Edilecekler
 
 ---
 
 ## 1. Yönetici Özeti
 
-InvenFlow; birden fazla firmanın (tenant), her biri kendi şubelerine sahip olacak şekilde **envanter ve şubeler arası kaynak hareketlerini** tek bir platformdan yönettiği, **gerçek zamanlı** bir kurumsal yönetim sistemidir.
+StockRoute; birden fazla firmanın (tenant), her biri kendi şubelerine sahip olacak şekilde **envanter ve şubeler arası kaynak hareketlerini** tek bir platformdan yönettiği, **gerçek zamanlı** bir kurumsal yönetim sistemidir.
 
 Üç temel direk:
 
@@ -51,14 +55,14 @@ InvenFlow; birden fazla firmanın (tenant), her biri kendi şubelerine sahip ola
 2. **RBAC:** Aynı firma içinde kullanıcılar rollerine göre (Firma Admini, Şube Yöneticisi, Depo Sorumlusu, Saha Personeli) farklı yetkilere sahiptir.
 3. **Gerçek Zamanlılık:** Bir şubedeki stok değişimi veya transfer, ilgili kullanıcıların ekranına anlık yansır.
 
-Çıktı tek bir **monorepo** içinde: **Backend API (NestJS)**, **Web Yönetim Paneli (React)** ve **Mobil Saha Uygulaması (React Native)**. Paylaşılan tipler ve yapılandırma ortak paketlerde toplanır.
+Çıktı tek bir **monorepo** içinde: **Backend API (NestJS)**, **Web Yönetim Paneli (React)** ve **Mobil Saha Uygulaması (React Native)**. Paylaşılan tipler ve yapılandırma ortak paketlerde toplanır; tüm sistem **Docker** ile tek komutla ayağa kalkar.
 
 ---
 
 ## 2. Problem Tanımı ve Hedefler
 
 ### 2.1 Çözülen Problem
-Çok şubeli firmalarda envanter genelde her şubede ayrı ve kontrolsüz tutulur; şubeler arası transfer telefon/Excel ile yürür, stok tutarsızlıkları oluşur ve merkezi görünürlük yoktur. InvenFlow bu süreci dijitalleştirir, firma bazında izole eder ve anlık görünür kılar.
+Çok şubeli firmalarda envanter genelde her şubede ayrı ve kontrolsüz tutulur; şubeler arası transfer telefon/Excel ile yürür, stok tutarsızlıkları oluşur ve merkezi görünürlük yoktur. StockRoute bu süreci dijitalleştirir, firma bazında izole eder ve anlık görünür kılar.
 
 ### 2.2 Başarı Kriterleri (Definition of Success)
 - [ ] Firma kaydı, otomatik olarak izole bir tenant alanı ve ilk Firma Admini oluşturur.
@@ -67,6 +71,7 @@ InvenFlow; birden fazla firmanın (tenant), her biri kendi şubelerine sahip ola
 - [ ] Şubeler arası transfer uçtan uca çalışır: talep → onay → sevk → teslim.
 - [ ] Web'de yapılan değişiklik, mobil ve diğer web istemcilerine anlık yansır.
 - [ ] Mobilde barkod okutularak ürün/stok sorgulanabilir ve transfer teslim alınabilir.
+- [ ] Tüm sistem `docker compose up` ile tek komutla ayağa kalkar.
 
 ---
 
@@ -74,12 +79,14 @@ InvenFlow; birden fazla firmanın (tenant), her biri kendi şubelerine sahip ola
 
 ### 3.1 Kapsam İçi (20 günde teslim edilecek)
 - Monorepo altyapısı (apps + packages) ve paylaşılan tip katmanı
-- Tasarım sistemi, marka asset'leri ve tüm ekranların mockup'ları
+- Dockerizasyon (PostgreSQL + API + Web container'ları, compose)
+- Marka & logo (1:1 uygulama logosu) + tasarım sistemi + GenAI ekran mockup'ları
 - Firma (tenant) onboarding + veri izolasyonu
 - JWT kimlik doğrulama + RBAC yetkilendirme
 - Şube, Ürün, Envanter (şube bazlı stok) yönetimi
 - Şubeler arası stok transfer iş akışı (durum makinesi)
 - Socket.io ile gerçek zamanlı stok/transfer güncellemeleri
+- Scalar ile interaktif API dokümantasyonu
 - Web Yönetim Paneli (dashboard, yönetim ekranları, transfer ekranı)
 - Mobil saha uygulaması (stok görüntüleme, barkod okuma, transfer teslim alma)
 
@@ -87,7 +94,7 @@ InvenFlow; birden fazla firmanın (tenant), her biri kendi şubelerine sahip ola
 - Ödeme/faturalandırma entegrasyonu
 - Detaylı raporlama/BI motoru
 - Çoklu dil (i18n) — sadece TR
-- Production ölçeğinde yük testi / tam CI-CD pipeline
+- Production ölçeğinde yük testi / tam CI-CD pipeline (temel Docker imajları kapsam içi, orkestrasyon/registry kapsam dışı)
 - Database-per-tenant fiziksel izolasyon (mantıksal izolasyon kullanılacak — bkz. 6.1)
 
 ---
@@ -99,18 +106,22 @@ Tüm yığın **script (JavaScript/TypeScript) ailesindendir.** Tek dil sayesind
 | Katman | Teknoloji | Gerekçe |
 |---|---|---|
 | **Monorepo yönetimi** | pnpm workspaces + Turborepo | Hızlı kurulum, paylaşılan paketler, tek `install` |
+| **Konteynerizasyon** | Docker + Docker Compose | Tek komutla ayağa kaldırma, ortam tutarlılığı, kolay demo |
 | **Backend** | NestJS (Node.js + TypeScript) | Modüler/katmanlı yapı; Guard & Interceptor ile RBAC + tenant izolasyonu nettir |
 | **ORM / Veritabanı** | Prisma ORM + PostgreSQL | Client Extension ile otomatik tenant filtreleme + güçlü migration |
 | **Kimlik & Yetki** | Passport.js + JWT + NestJS Guards | RBAC için Guard + `@Roles` decorator |
 | **Gerçek Zamanlı** | Socket.io (NestJS WebSocket Gateway) | Tenant bazlı "room" desteği |
+| **API Dokümantasyon** | OpenAPI (`@nestjs/swagger` dokümanı) + **Scalar** (`@scalar/nestjs-api-reference`) | Modern, kullanışlı, hızlı API referans arayüzü (Swagger UI'a göre daha iyi UX) |
 | **Web** | React + TypeScript + Vite + Material UI (MUI) | Hızlı geliştirme, tip güvenliği, hazır bileşenler |
 | **Web state/data** | TanStack Query + Zustand | Sunucu durumu + hafif istemci durumu |
 | **Mobil** | React Native (Expo) + Expo Router | Web ile aynı dil; `expo-camera` ile barkod okuma |
 | **Paylaşılan tipler** | TypeScript (packages/shared-types) | DTO, enum ve sözleşmeler tek yerde |
 | **Validation** | class-validator + class-transformer (API), Zod (form) | Sunucu ve istemci doğrulaması |
-| **API Dokümantasyon** | Swagger / OpenAPI (`@nestjs/swagger`) | Otomatik doküman + test arayüzü |
+| **Tasarım / GenAI** | Gemini ("Nano Banana") vb. | 1:1 logo ve ekran mockup'larının üretimi |
 | **Test** | Jest (API), Vitest + React Testing Library (web) | Birim/entegrasyon testleri |
 | **Kod kalitesi** | ESLint + Prettier (packages/config) | Tek standart, tüm projede ortak |
+
+> **Not (Scalar):** NestJS'te API şeması yine `@nestjs/swagger` ile OpenAPI olarak üretilir; ancak görüntüleme arayüzü olarak Swagger UI yerine **Scalar** kullanılır (`/docs`). Entegrasyon: https://scalar.com/products/api-references/integrations/nestjs — referans görünüm: Truncgil'in `app.parabol.truncgil.com/docs` örneğine benzer.
 
 ---
 
@@ -119,7 +130,7 @@ Tüm yığın **script (JavaScript/TypeScript) ailesindendir.** Tek dil sayesind
 ### 5.1 Üst Seviye Yapı
 
 ```
-invenflow/
+stockroute/
 ├── apps/
 │   ├── api/                  # NestJS backend (REST + WebSocket)
 │   ├── web/                  # React + Vite yönetim paneli
@@ -128,26 +139,26 @@ invenflow/
 │   ├── shared-types/         # Ortak TS tipleri, DTO, enum, API sözleşmeleri
 │   ├── config/               # Ortak eslint / prettier / tsconfig
 │   └── ui-tokens/            # Tasarım token'ları (renk, spacing, tipografi)
-├── assets/
-│   ├── brand/                # Logo, favicon, renk paleti referansı
-│   ├── mockups/              # Ekran mockup/wireframe görselleri
-│   └── README.md
-├── docs/
-│   ├── implementation_plan.md   # BU DOSYA (tek doğruluk kaynağı)
-│   ├── api.md                   # API ek notları
-│   └── decisions/               # Mimari karar kayıtları (ADR)
+├── docs/                     # Tüm .md ve marka/tasarım çalışmaları (konuya göre)
+│   ├── brand/                # logo.md + logo dosyaları (svg/png, 1:1 app icon), palette.md
+│   ├── design/               # design-system.md, mockups.md, mockups/ (GenAI görselleri)
+│   ├── api/                  # api-reference.md (Scalar/OpenAPI notları)
+│   └── architecture/         # decisions/ (ADR), diyagramlar
+├── docker-compose.yml        # db + api + web servisleri
+├── .dockerignore
 ├── .github/
 │   ├── pull_request_template.md
 │   └── ISSUE_TEMPLATE/
 ├── .env.example
 ├── .gitignore
+├── implementation_plan.md    # BU DOSYA — kökte (tek doğruluk kaynağı, staj rehberi gereği)
 ├── package.json              # workspace kökü
 ├── pnpm-workspace.yaml
 ├── turbo.json
 └── README.md
 ```
 
-> Not: `implementation_plan.md`'in kökte mi yoksa `docs/` altında mı duracağı staj rehberine göredir. Rehber "ana dizinde" dediği için kökte tutulur; `docs/` altındaki kopya semboliktir veya ek notlar içindir. **Kökteki dosya esas alınır.**
+> **Not:** `implementation_plan.md` staj rehberi gereği **kökte** durur. Diğer tüm `.md` dokümanları ve marka/tasarım çalışmaları (logo, mockup, ADR, API notları) **`docs/` altında konularına göre** klasörlenir (bkz. Bölüm 17). Uygulamaların kendi çalışma zamanı asset'leri (favicon, app icon) ilgili app klasöründedir; kaynak marka dosyaları `docs/brand`'dedir.
 
 ### 5.2 `apps/api` — Backend (NestJS, Clean Architecture)
 
@@ -186,8 +197,10 @@ apps/api/
 │   │   └── movements/
 │   ├── common/               # filters (exception), interceptors, pipes, utils
 │   ├── app.module.ts
-│   └── main.ts               # bootstrap, Swagger, global pipes/filters
+│   └── main.ts               # bootstrap, OpenAPI + Scalar (/docs), global pipes/filters
 ├── test/                     # e2e testleri
+├── Dockerfile                # multi-stage api imajı (bkz. Bölüm 13)
+├── .dockerignore
 ├── .env.example
 ├── nest-cli.json
 ├── package.json
@@ -222,6 +235,8 @@ apps/web/
 │   ├── App.tsx
 │   └── main.tsx
 ├── index.html
+├── Dockerfile                # build + nginx serve (bkz. Bölüm 13)
+├── nginx.conf
 ├── vite.config.ts
 ├── package.json
 └── tsconfig.json
@@ -246,11 +261,13 @@ apps/mobile/
 │   │   └── auth-store.ts
 │   ├── hooks/
 │   └── theme/
-├── assets/                   # uygulama ikonu, splash
+├── assets/                   # uygulama ikonu (1:1), splash
 ├── app.json                  # Expo yapılandırma
 ├── package.json
 └── tsconfig.json
 ```
+
+> Mobil, Expo ile cihaz/emülatörde çalıştığı için Docker'a alınmaz (bkz. Bölüm 13).
 
 ### 5.5 `packages/shared-types`
 
@@ -313,6 +330,20 @@ Stok/transfer değişti → Application servisi → DB güncellenir
                                             → InventoryGateway → tenant_{id} room'una emit
                                                → Web ve Mobil anlık güncellenir
 ```
+
+### 6.4 Dağıtım Topolojisi (Docker)
+
+```
+                ┌───────────────┐
+   tarayıcı ───▶│  web (nginx)  │───┐
+                └───────────────┘   │  REST + WS
+   mobil  ──────────────────────────┼───────────▶ ┌───────────────┐     ┌───────────────┐
+   (Expo, local)                    └────────────▶ │  api (NestJS) │───▶ │ db (Postgres) │
+                                                   └───────────────┘     └───────────────┘
+                          docker compose ile birlikte ayağa kalkar
+```
+
+Detaylar Bölüm 13'te.
 
 ---
 
@@ -516,9 +547,9 @@ PENDING ──approve──▶ APPROVED ──ship──▶ IN_TRANSIT ──rec
 
 ---
 
-## 9. API Sözleşmesi (Tüm Endpoint'ler)
+## 9. API Sözleşmesi & Dokümantasyon (Scalar)
 
-Tüm yanıtlar JSON'dur. Korumalı endpoint'ler `Authorization: Bearer <token>` ister. Hata formatı için bkz. Bölüm 14.
+Tüm yanıtlar JSON'dur. Korumalı endpoint'ler `Authorization: Bearer <token>` ister. Hata formatı için bkz. Bölüm 15.
 
 ### 9.1 Auth
 | Method | Path | Erişim | Açıklama |
@@ -573,6 +604,14 @@ Tüm yanıtlar JSON'dur. Korumalı endpoint'ler `Authorization: Bearer <token>` 
 | POST | `/movements/:id/receive` | tüm roller (hedef şube) | → RECEIVED, hedefe ekle |
 | POST | `/movements/:id/cancel` | talep eden / FIRM_ADMIN | → CANCELLED |
 
+### 9.7 API Dokümantasyonu — Scalar
+
+- API şeması `@nestjs/swagger` ile **OpenAPI** olarak üretilir (decorator'lar: `@ApiTags`, `@ApiOperation`, `@ApiResponse`, DTO'larda `@ApiProperty`).
+- Görüntüleme arayüzü olarak **Swagger UI yerine Scalar** kullanılır: `@scalar/nestjs-api-reference` ile `/docs` rotasında modern, aranabilir, "try it" destekli arayüz sunulur.
+- Kurulum referansı: https://scalar.com/products/api-references/integrations/nestjs
+- `main.ts` içinde OpenAPI dokümanı oluşturulur, Scalar bu dokümanı tüketir. JWT için "Authorize" (bearer) tanımı eklenir.
+- Hedef deneyim: Truncgil'in `app.parabol.truncgil.com/docs` örneğine benzer.
+
 ---
 
 ## 10. Gerçek Zamanlı Olay Kataloğu (Socket.io)
@@ -594,7 +633,7 @@ Tüm yanıtlar JSON'dur. Korumalı endpoint'ler `Authorization: Bearer <token>` 
 
 ## 11. Tasarım Sistemi & Marka
 
-> Bu bölüm, web ve mobilin **tek bir görsel dile** uymasını sağlar. Token'lar `packages/ui-tokens` içinde tanımlanır; MUI teması ve RN teması buradan beslenir. Asset'ler `assets/brand` altında tutulur.
+> Bu bölüm, web ve mobilin **tek bir görsel dile** uymasını sağlar. Token'lar `packages/ui-tokens` içinde tanımlanır; MUI teması ve RN teması buradan beslenir. Marka kaynak dosyaları ve `.md` çalışmaları **`docs/brand`** ve **`docs/design`** altında tutulur (bkz. Bölüm 17).
 
 ### 11.1 Renk Paleti
 
@@ -620,42 +659,64 @@ Tüm yanıtlar JSON'dur. Korumalı endpoint'ler `Authorization: Bearer <token>` 
 
 ### 11.3 Spacing & Şekil
 - Spacing skalası: 4 / 8 / 12 / 16 / 24 / 32.
-- Köşe yarıçapı: 8px (kart/buton), 4px (chip/input).
+- Köşe yarıçapı: 8px (kart/buton), 4px (chip/input); app icon 22px (1:1).
 - Gölge: hafif (`0 1px 3px rgba(0,0,0,0.08)`).
 
-### 11.4 Logo
-**Konsept:** İki kutu (şube) arasında akan bir ok — "envanter akışı"nı temsil eder. Wordmark: **Inven**(koyu) + **Flow**(primary mavi). `assets/brand/invenflow-logo.svg` olarak kaydedilecek referans SVG:
+### 11.4 Logo (StockRoute)
 
+**Konsept:** İki nokta (şube) arasında bir **rota** çizgisi ve varış pini — "stok rotası / şubeler arası akış"ı temsil eder. Wordmark: **Stock**(koyu) + **Route**(primary mavi).
+
+- **1:1 uygulama logosu (app icon):** Yuvarlatılmış kare içinde, beyaz bir rota çizgisi iki düğümü birleştirir. Bu, mobil app icon ve favicon için kullanılır.
+- **Üretim:** Aşağıdaki SVG'ler **referans/başlangıç** noktasıdır. Nihai 1:1 app icon ve yatay logo **Gemini ("Nano Banana")** ile rafine edilip `docs/brand/` altına `stockroute-logo.svg`, `stockroute-icon-1x1.png` olarak konur. Prompt ve varyantlar `docs/brand/logo.md` içinde belgelenir.
+
+**Yatay wordmark — referans SVG (`docs/brand/stockroute-logo.svg`):**
 ```svg
-<svg width="220" height="48" viewBox="0 0 220 48" xmlns="http://www.w3.org/2000/svg">
-  <rect x="4" y="14" width="20" height="20" rx="4" fill="#1E40AF"/>
-  <path d="M28 24 H44 M44 24 l-6 -5 M44 24 l-6 5" stroke="#2563EB" stroke-width="3"
-        fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="48" y="14" width="20" height="20" rx="4" fill="#2563EB"/>
-  <text x="78" y="31" font-family="Inter, sans-serif" font-size="22" font-weight="700">
-    <tspan fill="#0F172A">Inven</tspan><tspan fill="#2563EB">Flow</tspan>
+<svg width="240" height="48" viewBox="0 0 240 48" xmlns="http://www.w3.org/2000/svg">
+  <!-- rota çizgisi -->
+  <path d="M12 32 C 26 12, 44 12, 56 28" stroke="#2563EB" stroke-width="3" fill="none"
+        stroke-linecap="round" stroke-dasharray="2 6"/>
+  <!-- başlangıç kutusu (stok) -->
+  <rect x="4" y="28" width="14" height="14" rx="3" fill="#1E40AF"/>
+  <!-- varış pini (rota) -->
+  <path d="M56 12 a8 8 0 0 1 8 8 c0 6 -8 14 -8 14 s-8 -8 -8 -14 a8 8 0 0 1 8 -8 z" fill="#2563EB"/>
+  <circle cx="56" cy="20" r="3" fill="#FFFFFF"/>
+  <text x="78" y="33" font-family="Inter, sans-serif" font-size="22" font-weight="700">
+    <tspan fill="#0F172A">Stock</tspan><tspan fill="#2563EB">Route</tspan>
   </text>
 </svg>
 ```
 
-### 11.5 Asset Listesi (`assets/`)
-- `brand/invenflow-logo.svg` (yatay), `brand/invenflow-mark.svg` (sadece ikon)
-- `brand/favicon.png`, mobil `icon.png` + `splash.png`
-- `brand/palette.png` (renk referansı)
-- `mockups/web-*.png` ve `mockups/mobile-*.png` (Bölüm 12'deki ekranların görselleri)
+**1:1 app icon — referans SVG (`docs/brand/stockroute-icon-1x1.svg`):**
+```svg
+<svg width="96" height="96" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+  <rect width="96" height="96" rx="22" fill="#2563EB"/>
+  <path d="M24 64 C 36 36, 60 36, 72 60" stroke="#FFFFFF" stroke-width="5" fill="none"
+        stroke-linecap="round" stroke-dasharray="3 9"/>
+  <rect x="16" y="58" width="16" height="16" rx="4" fill="#FFFFFF"/>
+  <circle cx="72" cy="60" r="9" fill="#FFFFFF"/>
+  <circle cx="72" cy="60" r="4" fill="#2563EB"/>
+</svg>
+```
+
+### 11.5 Marka Asset Listesi
+- `docs/brand/stockroute-logo.svg` (yatay), `docs/brand/stockroute-mark.svg` (sadece ikon)
+- `docs/brand/stockroute-icon-1x1.png` (1:1 app icon, Gemini ile üretilen nihai)
+- `docs/brand/favicon.png`; mobil `apps/mobile/assets/icon.png` + `splash.png` (1:1 icon'dan türetilir)
+- `docs/brand/palette.md` (renk referansı + kullanım)
+- `docs/design/mockups/` (Bölüm 12'deki ekranların GenAI görselleri)
 
 ---
 
-## 12. Ekran Envanteri & Mockup'lar
+## 12. Ekran Envanteri & Mockup'lar (GenAI)
 
-> Aşağıdaki düşük çözünürlüklü wireframe'ler, AI/geliştiricinin ekran düzenini birebir anlaması içindir. Yüksek çözünürlüklü mockup görselleri `assets/mockups/` altına konur.
+> Aşağıdaki wireframe'ler ekran düzeninin **kesin spesifikasyonudur** (AI/geliştirici bunlara uyar). Bu wireframe'lere ve tasarım sistemine (Bölüm 11) dayanarak **yüksek çözünürlüklü ekran mockup'ları Gemini vb. GenAI ile üretilir** ve `docs/design/mockups/` altına `web-*.png` / `mobile-*.png` olarak konur. Üretim prompt'ları `docs/design/mockups.md` içinde belgelenir. Sıra: önce logo (Bölüm 11.4), sonra mockup'lar.
 
 ### 12.1 Web Ekranları
 
 **Login**
 ```
 ┌────────────────────────────────────┐
-│            [InvenFlow logo]         │
+│           [StockRoute logo]         │
 │   ┌──────────────────────────────┐  │
 │   │ Firma Kodu (slug)            │  │
 │   │ E-posta                      │  │
@@ -697,7 +758,7 @@ Tüm yanıtlar JSON'dur. Korumalı endpoint'ler `Authorization: Bearer <token>` 
 **Login**
 ```
 ┌───────────────────┐
-│   [InvenFlow]      │
+│   [StockRoute]     │
 │ Firma kodu         │
 │ E-posta            │
 │ Şifre              │
@@ -725,13 +786,88 @@ Tüm yanıtlar JSON'dur. Korumalı endpoint'ler `Authorization: Bearer <token>` 
 
 ---
 
-## 13. Ortam Değişkenleri (.env)
+## 13. Dockerizasyon & Çalıştırma
+
+**Hedef:** Tüm sistem (db + api + web) tek komutla — `docker compose up` — ayağa kalkar. Mobil (Expo) cihaz/emülatörde çalışır, container'a alınmaz.
+
+### 13.1 `docker-compose.yml` (kök)
+```yaml
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: stockroute
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: stockroute
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    environment:
+      DATABASE_URL: postgresql://stockroute:password@db:5432/stockroute
+      JWT_SECRET: change-me
+      API_PORT: 3000
+    depends_on: [db]
+    ports: ["3000:3000"]
+
+  web:
+    build: { context: ., dockerfile: apps/web/Dockerfile }
+    depends_on: [api]
+    ports: ["5173:80"]
+
+volumes:
+  pgdata:
+```
+
+### 13.2 `apps/api/Dockerfile` (multi-stage)
+```dockerfile
+FROM node:20-alpine AS build
+WORKDIR /app
+RUN npm i -g pnpm
+COPY . .
+RUN pnpm install --frozen-lockfile
+RUN pnpm --filter api prisma generate && pnpm --filter api build
+
+FROM node:20-alpine
+WORKDIR /app
+RUN npm i -g pnpm
+COPY --from=build /app ./
+EXPOSE 3000
+# migrate deploy + start
+CMD ["sh", "-c", "pnpm --filter api prisma migrate deploy && node apps/api/dist/main.js"]
+```
+
+### 13.3 `apps/web/Dockerfile` (build + nginx)
+```dockerfile
+FROM node:20-alpine AS build
+WORKDIR /app
+RUN npm i -g pnpm
+COPY . .
+RUN pnpm install --frozen-lockfile
+RUN pnpm --filter web build
+
+FROM nginx:alpine
+COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/apps/web/dist /usr/share/nginx/html
+EXPOSE 80
+```
+
+### 13.4 Geliştirme vs Demo
+- **Geliştirme:** Sadece `db` container'da çalışır (`docker compose up db`); `api` ve `web` local'de `pnpm dev` ile hızlı geliştirilir. `DATABASE_URL` host'tan `localhost:5432`.
+- **Demo/teslim:** Tüm servisler container'da (`docker compose up --build`). Container içi `api`, db'ye `db:5432` ile bağlanır.
+- `.dockerignore`: `node_modules`, `dist`, `.env`, `.turbo`, `*.log`.
+
+---
+
+## 14. Ortam Değişkenleri (.env)
 
 Kök `.env.example` (her uygulamanın kendi `.env`'i için referans):
 
 ```
 # --- API (apps/api) ---
-DATABASE_URL=postgresql://invenflow:password@localhost:5432/invenflow
+# Local geliştirme: localhost ; Docker compose içi: db
+DATABASE_URL=postgresql://stockroute:password@localhost:5432/stockroute
 JWT_SECRET=change-me-in-production
 JWT_EXPIRES_IN=1d
 API_PORT=3000
@@ -750,7 +886,7 @@ EXPO_PUBLIC_SOCKET_URL=http://localhost:3000
 
 ---
 
-## 14. Kodlama Standartları & Hata Yönetimi
+## 15. Kodlama Standartları & Hata Yönetimi
 
 - **Dil:** Her yerde TypeScript `strict` modu açık.
 - **Lint/format:** ESLint + Prettier `packages/config`'ten paylaşılır; commit öncesi otomatik çalışır.
@@ -765,7 +901,7 @@ EXPO_PUBLIC_SOCKET_URL=http://localhost:3000
 
 ---
 
-## 15. Test Stratejisi
+## 16. Test Stratejisi
 
 - **Birim test (Jest):** Transfer durum makinesi, stok düşme/ekleme, RBAC guard mantığı.
 - **Entegrasyon/e2e (Jest + supertest):** Auth akışı, tenant izolasyonu (iki tenant ile çapraz erişim 403 döner), transfer uçtan uca.
@@ -774,23 +910,54 @@ EXPO_PUBLIC_SOCKET_URL=http://localhost:3000
 
 ---
 
-## 16. 20 İş Günlük Yol Haritası
+## 17. Dokümantasyon Yapısı (docs/)
 
-> **Çalışma Disiplini:** Her iş günü en az bir anlamlı commit (commit yoksa o gün "çalışılmamış" sayılır → staj defteri). Her gün **daily standup**. Commit'ler **Conventional Commits** + monorepo scope (`feat(api):`, `feat(web):`, `feat(mobile):`, `chore:`, `design:`, `docs:`, `test:`). Her görev **feature branch + PR** ile gelir (bkz. Bölüm 18).
+> Staj yetkilisinin isteği: logo ve tüm `.md` çalışmaları `docs/` altında **konularına göre** tutulur. Düzen:
 
-### 🟦 Faz 0 — Monorepo, Tasarım & Altyapı (Gün 1–4)
+```
+docs/
+├── brand/
+│   ├── logo.md                 # logo konsepti, GenAI prompt'ları, kullanım kuralları, varyantlar
+│   ├── stockroute-logo.svg     # yatay wordmark
+│   ├── stockroute-mark.svg     # sadece ikon
+│   ├── stockroute-icon-1x1.png # 1:1 app icon (Gemini)
+│   └── palette.md              # renk paleti ve kullanımları
+├── design/
+│   ├── design-system.md        # token detayları (renk/tipografi/spacing)
+│   ├── mockups.md              # mockup üretim notları + GenAI prompt'ları
+│   └── mockups/                # üretilen ekran görselleri (web-*.png, mobile-*.png)
+├── api/
+│   └── api-reference.md        # Scalar/OpenAPI kurulumu ve notları
+└── architecture/
+    ├── decisions/              # ADR (mimari karar kayıtları)
+    └── diagrams/               # mimari/şema diyagramları
+```
 
-**Gün 1 — Monorepo & Tooling**
+**Kurallar:**
+- `implementation_plan.md` **kökte** kalır (tek doğruluk kaynağı, staj rehberi gereği).
+- Logo, mockup, marka ve diğer tüm `.md` çalışmaları ilgili `docs/<konu>/` klasöründe tutulur.
+- Her doküman `docs:` veya `design:` commit'iyle ve mümkünse kendi PR'ıyla gelir.
+
+---
+
+## 18. 20 İş Günlük Yol Haritası
+
+> **Çalışma Disiplini:** Her iş günü en az bir anlamlı commit (commit yoksa o gün "çalışılmamış" sayılır → staj defteri). Her gün **daily standup**. Commit'ler **Conventional Commits** + monorepo scope (`feat(api):`, `feat(web):`, `feat(mobile):`, `chore:`, `design:`, `docs:`, `test:`). Her görev **feature branch + PR** ile gelir (bkz. Bölüm 20).
+
+### 🟦 Faz 0 — Monorepo, Docker, Tasarım & Altyapı (Gün 1–4)
+
+**Gün 1 — Monorepo, Docker & Tooling**
 - pnpm workspaces + Turborepo kurulumu; `apps/api`, `apps/web`, `apps/mobile` iskeletleri
 - `packages/config` (ESLint/Prettier/tsconfig), `packages/shared-types` iskeleti
+- `docker-compose.yml` (PostgreSQL) + `.dockerignore`; API bootstrap'ta OpenAPI + **Scalar** `/docs`
 - `.env.example`, `.gitignore`, kök README, `/health` endpoint'i
-- 📦 `chore: scaffold monorepo with apps and shared packages`
+- 📦 `chore: scaffold monorepo with docker and scalar docs`
 
-**Gün 2 — Tasarım Sistemi & Mockup'lar**
-- Renk paleti, tipografi, spacing token'ları → `packages/ui-tokens`
-- Logo + favicon + mobil ikon → `assets/brand`
-- Tüm ekranların mockup'ları → `assets/mockups`
-- 📦 `design: add brand assets, design tokens and screen mockups`
+**Gün 2 — Marka, Logo (1:1) & Mockup'lar (GenAI)**
+- 1:1 uygulama logosu + yatay wordmark (Gemini "Nano Banana") → `docs/brand`
+- Design token'ları (renk/tipografi/spacing) → `packages/ui-tokens`; `docs/design/design-system.md`
+- Tüm ekran mockup'ları (Gemini) → `docs/design/mockups`; prompt'lar `docs/design/mockups.md`
+- 📦 `design: add 1:1 logo, design tokens and genai mockups`
 
 **Gün 3 — Veritabanı Tasarımı**
 - Prisma şeması (Bölüm 7), enum'lar, ilişkiler, indeksler; ilk migration; seed iskeleti
@@ -804,7 +971,7 @@ EXPO_PUBLIC_SOCKET_URL=http://localhost:3000
 ### 🟩 Faz 1 — Kimlik & Yetkilendirme (Gün 5–7)
 
 **Gün 5 — Authentication**
-- Passport + JWT; register-tenant & login; token'a `tenantId` + `role` claim'i
+- Passport + JWT; register-tenant & login; token'a `tenantId` + `role` claim'i; endpoint'ler Scalar'da dokümante
 - 📦 `feat(api): add jwt authentication with passport`
 
 **Gün 6 — RBAC**
@@ -833,32 +1000,32 @@ EXPO_PUBLIC_SOCKET_URL=http://localhost:3000
 
 ### 🟥 Faz 4 — Mobil & Teslim (Gün 18–20)
 
-**Gün 18 — Mobil İskelet & Auth** (Expo Router, login, api-client) → 📦 `feat(mobile): scaffold app with auth and navigation`
+**Gün 18 — Mobil İskelet & Auth** (Expo Router, login, api-client, 1:1 app icon) → 📦 `feat(mobile): scaffold app with auth and navigation`
 **Gün 19 — Mobil Stok & Barkod** (şube stok listesi, `expo-camera` barkod → ürün sorgu) → 📦 `feat(mobile): add stock list and barcode scanning`
-**Gün 20 — Mobil Transfer + E2E + Teslim** (gelen transfer teslim alma + real-time sync; uçtan uca test, bug fix, README/Swagger/demo) → 📦 `feat(mobile): add transfer handling and finalize docs`
+**Gün 20 — Mobil Transfer + Dockerize + Teslim** (gelen transfer teslim + real-time sync; `apps/api` & `apps/web` Dockerfile + compose finalize; uçtan uca test, README/Scalar/demo) → 📦 `feat(mobile): add transfer handling and dockerize services`
 
 ---
 
-## 17. Haftalık Sprint Özeti
+## 19. Haftalık Sprint Özeti
 
 | Hafta | Günler | Hedef | Çıktı |
 |---|---|---|---|
-| **1** | 1–5 | Monorepo + tasarım + DB + tenancy + auth | İzolasyonlu, markalı, güvenli iskelet |
+| **1** | 1–5 | Monorepo + Docker + marka/logo + DB + tenancy + auth | İzolasyonlu, markalı, dockerize iskelet |
 | **2** | 6–11 | RBAC + onboarding + çekirdek domain | Çalışan transfer iş akışı |
 | **3** | 12–17 | Testler + real-time + web panel | Canlı güncellenen yönetim paneli |
-| **4** | 18–20 | Mobil + teslim | Saha uygulaması + dokümante teslim |
+| **4** | 18–20 | Mobil + tam dockerize + teslim | Saha uygulaması + tek komutla ayağa kalkan, dokümante sistem |
 
 ---
 
-## 18. Git Workflow & PR Süreci
+## 20. Git Workflow & PR Süreci
 
 > Staj yetkilisinin (Ümit Bey) beklentisi: doğrudan `main`'e push yok; her özellik kendi branch'inde, PR ile incelenir.
 
-### 18.1 Branch Stratejisi
+### 20.1 Branch Stratejisi
 - `main` → her zaman çalışır, korumalı; sadece PR ile merge.
-- `feature/<modül>` → her görev kendi dalında (örn. `feature/stock-transfer`, `feature/web-dashboard`).
+- `feature/<modül>` → her görev kendi dalında (örn. `feature/stock-transfer`, `feature/web-dashboard`, `feature/docker-setup`).
 
-### 18.2 Akış (her görev için)
+### 20.2 Akış (her görev için)
 ```
 git checkout main && git pull
 git checkout -b feature/<modül>
@@ -868,25 +1035,25 @@ git push -u origin feature/<modül>
 git checkout main && git pull
 ```
 
-### 18.3 Commit Standardı (Conventional Commits + scope)
+### 20.3 Commit Standardı (Conventional Commits + scope)
 | Önek | Örnek |
 |---|---|
 | `feat(scope):` | `feat(api): add login validation` |
 | `fix(scope):` | `fix(api): prevent negative stock on transfer` |
 | `docs:` | `docs: update implementation plan` |
-| `design:` | `design: add screen mockups` |
+| `design:` | `design: add 1:1 logo and mockups` |
 | `refactor:` | `refactor(web): extract table component` |
 | `test:` | `test(api): cover transfer approval` |
-| `chore:` | `chore: configure turborepo` |
+| `chore:` | `chore: configure docker compose` |
 
-### 18.4 PR Kuralları
+### 20.4 PR Kuralları
 - PR başlığı Conventional Commit formatında.
 - Açıklamada: ne yapıldı (madde madde), kapsam dışı, ilgili issue (`Closes #N`).
 - En az 1 onay alınmadan merge edilmez.
 
 ---
 
-## 19. GitHub Projects Board & Issue Yönetimi
+## 21. GitHub Projects Board & Issue Yönetimi
 
 - Repo → **Projects** → Board: kolonlar **To Do / In Progress / Review / Done**.
 - Plandaki her gün/modül bir **Issue** olur (örn. "Gün 11 — Transfer iş akışı").
@@ -896,7 +1063,7 @@ git checkout main && git pull
 
 ---
 
-## 20. Daily Standup
+## 22. Daily Standup
 
 Her iş günü başında üç soru:
 1. **Dün ne yaptım?**
@@ -907,40 +1074,43 @@ Her iş günü başında üç soru:
 
 ---
 
-## 21. Risk Yönetimi
+## 23. Risk Yönetimi
 
 | Risk | Olasılık | Etki | Önlem |
 |---|---|---|---|
 | Tenant izolasyonu sızması | Orta | Yüksek | Prisma extension + çapraz tenant e2e testi (Gün 7) |
-| Monorepo kurulum karmaşası | Düşük | Orta | pnpm + Turborepo standart şablonu, Gün 1'de izole |
+| Monorepo + Docker build karmaşası | Düşük | Orta | pnpm + Turborepo standart şablonu; multi-stage Dockerfile + `.dockerignore`; dev'de sadece db container |
 | 20 güne sığmama | Orta | Orta | "Must-have"e odak; raporlama/BI kapsam dışı |
 | Real-time karmaşıklığı | Orta | Orta | Socket.io native room; minimal olay seti |
 | Mobil barkod sorunu | Düşük | Düşük | Expo hazır kamera modülü |
+| GenAI logo/mockup tutarsızlığı | Düşük | Düşük | Tasarım token'ları + net wireframe'lere göre üretim; varyantları `docs/`'ta tutma |
 | Kapsam kayması | Orta | Orta | Bölüm 3 kapsam dışı listesine sadakat |
 
 ---
 
-## 22. Definition of Done
+## 24. Definition of Done
 
 Bir görev şu koşullarda biter:
 - [ ] Kod yazıldı, derleniyor/çalışıyor; lint temiz.
 - [ ] Tenant izolasyonu + RBAC uygulandı.
 - [ ] Kritik iş mantığı için test yazıldı (uygunsa).
 - [ ] Tasarım, ilgili mockup'a ve token'lara uygun.
+- [ ] (İlgiliyse) Docker imajı build oluyor / compose ayağa kalkıyor.
 - [ ] Feature branch + PR ile sunuldu, en az 1 onay alındı, merge edildi.
 - [ ] Board kartı *Done*'a taşındı; standup'ta raporlandı.
 
 ---
 
-## 23. Teslim Edilecekler
+## 25. Teslim Edilecekler
 
 1. **Monorepo** — apps (api/web/mobile) + packages, tek `pnpm install` ile ayağa kalkar.
-2. **Backend API** — katmanlı, multi-tenant, RBAC'li, Swagger dokümanlı.
-3. **Web Yönetim Paneli** — gerçek zamanlı, rol bazlı, tasarım sistemine uygun.
-4. **Mobil Saha Uygulaması** — stok takibi + barkod + transfer teslim.
-5. **Tasarım asset'leri** — logo, token'lar, ekran mockup'ları.
-6. **Dokümantasyon** — bu plan, README'ler, kurulum talimatı, API dokümanı.
-7. **Git geçmişi & board** — düzenli PR'lar, günlük commit'ler, dolu staj defteri.
+2. **Dockerize sistem** — `docker compose up` ile db + api + web tek komutla ayağa kalkar.
+3. **Backend API** — katmanlı, multi-tenant, RBAC'li, **Scalar/OpenAPI** dokümanlı.
+4. **Web Yönetim Paneli** — gerçek zamanlı, rol bazlı, tasarım sistemine uygun.
+5. **Mobil Saha Uygulaması** — stok takibi + barkod + transfer teslim; 1:1 app icon.
+6. **Marka & tasarım** — 1:1 logo, design token'ları, GenAI ekran mockup'ları (`docs/` altında).
+7. **Dokümantasyon** — bu plan (kökte) + `docs/` altında konuya göre düzenli belgeler.
+8. **Git geçmişi & board** — düzenli PR'lar, günlük commit'ler, dolu staj defteri.
 
 ---
 
