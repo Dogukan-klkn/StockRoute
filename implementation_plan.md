@@ -349,7 +349,12 @@ Detaylar Bölüm 13'te.
 
 ## 7. Veri Modeli (Tam Prisma Şeması)
 
-`apps/api/prisma/schema.prisma` içeriği aşağıdaki gibidir. Tüm modeller `tenantId` taşır (Tenant hariç).
+`apps/api/prisma/schema.prisma` içeriği aşağıdaki gibidir. Tüm modeller `tenantId` taşır (Tenant hariç; `StockMovementItem` ise header olan `StockMovement` üzerinden tenant'a bağlıdır — kendi `tenantId`'si yoktur).
+
+> **Mimari notlar (v3.1 — kurumsal envanter iyileştirmeleri):**
+> 1. **Çoklu ürün (header-line) desteği:** Bir transfer (`StockMovement`) artık tek ürün yerine birden fazla satır taşır. `productId`/`quantity` alanları `StockMovement`'tan kaldırılıp `StockMovementItem` (movement + product + quantity) modeline taşındı.
+> 2. **Hesap verilebilirlik (accountability):** `StockMovement`, sevk ve teslim işlemlerini yapan kullanıcıları takip etmek için `shippedById`/`receivedById` alanları ve `User` ile `ShippedBy`/`ReceivedBy` ilişkileri kazandı.
+> 3. **Stok izlenebilirliği (audit trail):** Tüm stok artış/azalışları (transfer giriş/çıkış + manuel düzeltme + ilk stok) `InventoryLog` içinde `previousQuantity`/`newQuantity`/`quantityChange` ile kayıt altına alınır (`TransactionType` enum'ı).
 
 ```prisma
 generator client {
@@ -386,6 +391,13 @@ enum ProductUnit {
   PACK
 }
 
+enum TransactionType {
+  TRANSFER_IN         // transfer teslim alındı (hedef şubeye giriş)
+  TRANSFER_OUT        // transfer sevk edildi (kaynak şubeden çıkış)
+  MANUAL_ADJUSTMENT   // manuel stok düzeltme
+  INITIAL_STOCK       // ilk stok tanımı / seed
+}
+
 model Tenant {
   id        String   @id @default(cuid())
   name      String
@@ -394,11 +406,12 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users       User[]
-  branches    Branch[]
-  products    Product[]
-  inventories Inventory[]
-  movements   StockMovement[]
+  users         User[]
+  branches      Branch[]
+  products      Product[]
+  inventories   Inventory[]
+  movements     StockMovement[]
+  inventoryLogs InventoryLog[]
 }
 
 model User {
@@ -418,6 +431,9 @@ model User {
 
   requestedMovements StockMovement[] @relation("RequestedBy")
   approvedMovements  StockMovement[] @relation("ApprovedBy")
+  shippedMovements   StockMovement[] @relation("ShippedBy")
+  receivedMovements  StockMovement[] @relation("ReceivedBy")
+  inventoryLogs      InventoryLog[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -435,11 +451,12 @@ model Branch {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant      Tenant          @relation(fields: [tenantId], references: [id])
-  users       User[]
-  inventories Inventory[]
-  outgoing    StockMovement[] @relation("SourceBranch")
-  incoming    StockMovement[] @relation("DestinationBranch")
+  tenant        Tenant          @relation(fields: [tenantId], references: [id])
+  users         User[]
+  inventories   Inventory[]
+  outgoing      StockMovement[] @relation("SourceBranch")
+  incoming      StockMovement[] @relation("DestinationBranch")
+  inventoryLogs InventoryLog[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -458,9 +475,10 @@ model Product {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
-  tenant      Tenant          @relation(fields: [tenantId], references: [id])
-  inventories Inventory[]
-  movements   StockMovement[]
+  tenant        Tenant              @relation(fields: [tenantId], references: [id])
+  inventories   Inventory[]
+  movementItems StockMovementItem[]
+  inventoryLogs InventoryLog[]
 
   @@unique([tenantId, sku])
   @@index([tenantId, barcode])
@@ -488,26 +506,64 @@ model StockMovement {
   tenantId            String
   sourceBranchId      String
   destinationBranchId String
-  productId           String
-  quantity            Int
   status              MovementStatus @default(PENDING)
   note                String?
   requestedById       String
   approvedById        String?
+  shippedById         String?
+  receivedById        String?
   createdAt           DateTime       @default(now())
   approvedAt          DateTime?
   shippedAt           DateTime?
   receivedAt          DateTime?
   updatedAt           DateTime       @updatedAt
 
-  tenant            Tenant  @relation(fields: [tenantId], references: [id])
-  sourceBranch      Branch  @relation("SourceBranch", fields: [sourceBranchId], references: [id])
-  destinationBranch Branch  @relation("DestinationBranch", fields: [destinationBranchId], references: [id])
-  product           Product @relation(fields: [productId], references: [id])
-  requestedBy       User    @relation("RequestedBy", fields: [requestedById], references: [id])
-  approvedBy        User?   @relation("ApprovedBy", fields: [approvedById], references: [id])
+  tenant            Tenant              @relation(fields: [tenantId], references: [id])
+  sourceBranch      Branch              @relation("SourceBranch", fields: [sourceBranchId], references: [id])
+  destinationBranch Branch              @relation("DestinationBranch", fields: [destinationBranchId], references: [id])
+  requestedBy       User                @relation("RequestedBy", fields: [requestedById], references: [id])
+  approvedBy        User?               @relation("ApprovedBy", fields: [approvedById], references: [id])
+  shippedBy         User?               @relation("ShippedBy", fields: [shippedById], references: [id])
+  receivedBy        User?               @relation("ReceivedBy", fields: [receivedById], references: [id])
+  items             StockMovementItem[]
 
   @@index([tenantId, status])
+}
+
+model StockMovementItem {
+  id         String @id @default(cuid())
+  movementId String
+  productId  String
+  quantity   Int
+
+  movement StockMovement @relation(fields: [movementId], references: [id], onDelete: Cascade)
+  product  Product       @relation(fields: [productId], references: [id])
+
+  @@unique([movementId, productId])
+  @@index([movementId])
+  @@index([productId])
+}
+
+model InventoryLog {
+  id               String          @id @default(cuid())
+  tenantId         String
+  branchId         String
+  productId        String
+  userId           String
+  type             TransactionType
+  quantityChange   Int
+  previousQuantity Int
+  newQuantity      Int
+  reason           String?
+  createdAt        DateTime        @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  branch  Branch  @relation(fields: [branchId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([branchId, productId])
 }
 ```
 
@@ -592,6 +648,8 @@ Tüm yanıtlar JSON'dur. Korumalı endpoint'ler `Authorization: Bearer <token>` 
 | GET | `/inventory?branchId=&lowStock=` | yetkili roller |
 | POST | `/inventory/adjust` | BRANCH_MANAGER, WAREHOUSE_STAFF `{ branchId, productId, quantity, reason }` |
 
+> **Not (audit trail):** `/inventory/adjust` her çağrıda ilgili `Inventory.quantity`'yi günceller **ve** bir `InventoryLog` satırı yazar (`type: MANUAL_ADJUSTMENT`, `previousQuantity`, `newQuantity`, `quantityChange`, `reason`, işlemi yapan `userId`). Böylece manuel düzeltmeler izlenebilir kalır (bkz. §7 — `InventoryLog`).
+
 ### 9.6 Stock Movements (Transfer)
 | Method | Path | Erişim | Etki |
 |---|---|---|---|
@@ -603,6 +661,12 @@ Tüm yanıtlar JSON'dur. Korumalı endpoint'ler `Authorization: Bearer <token>` 
 | POST | `/movements/:id/ship` | yetkili roller | → IN_TRANSIT, kaynaktan düş |
 | POST | `/movements/:id/receive` | tüm roller (hedef şube) | → RECEIVED, hedefe ekle |
 | POST | `/movements/:id/cancel` | talep eden / FIRM_ADMIN | → CANCELLED |
+
+> **Not (çoklu ürün / header-line):** `POST /movements` payload'ı artık tek ürün yerine bir **`items` dizisi** taşır:
+> `{ sourceBranchId, destinationBranchId, note?, items: [{ productId, quantity }, ...] }`.
+> Her satır bir `StockMovementItem` olarak kaydedilir. `ship`/`receive` sırasında stok hareketi ve `InventoryLog` (`TRANSFER_OUT` / `TRANSFER_IN`) **satır bazında** işlenir; negatif stok engeli her satır için ayrı kontrol edilir.
+>
+> **Not (accountability):** `ship` işlemi `shippedById`/`shippedAt`, `receive` işlemi `receivedById`/`receivedAt` alanlarını işlemi yapan kullanıcıyla doldurur (bkz. §7 — `StockMovement`).
 
 ### 9.7 API Dokümantasyonu — Scalar
 

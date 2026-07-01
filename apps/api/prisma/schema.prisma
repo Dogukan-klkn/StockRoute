@@ -1,0 +1,208 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  FIRM_ADMIN
+  BRANCH_MANAGER
+  WAREHOUSE_STAFF
+  FIELD_STAFF
+}
+
+enum MovementStatus {
+  PENDING      // talep oluşturuldu
+  APPROVED     // yetkili onayladı
+  IN_TRANSIT   // sevk edildi (kaynaktan düşüldü)
+  RECEIVED     // teslim alındı (hedefe eklendi)
+  REJECTED     // reddedildi
+  CANCELLED    // talep eden iptal etti
+}
+
+enum ProductUnit {
+  PIECE
+  KG
+  LITER
+  BOX
+  PACK
+}
+
+enum TransactionType {
+  TRANSFER_IN         // transfer teslim alındı (hedef şubeye giriş)
+  TRANSFER_OUT        // transfer sevk edildi (kaynak şubeden çıkış)
+  MANUAL_ADJUSTMENT   // manuel stok düzeltme
+  INITIAL_STOCK       // ilk stok tanımı / seed
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  branches      Branch[]
+  products      Product[]
+  inventories   Inventory[]
+  movements     StockMovement[]
+  inventoryLogs InventoryLog[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String
+  email        String
+  passwordHash String
+  fullName     String
+  role         UserRole @default(FIELD_STAFF)
+  branchId     String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+  branch Branch? @relation(fields: [branchId], references: [id])
+
+  requestedMovements StockMovement[] @relation("RequestedBy")
+  approvedMovements  StockMovement[] @relation("ApprovedBy")
+  shippedMovements   StockMovement[] @relation("ShippedBy")
+  receivedMovements  StockMovement[] @relation("ReceivedBy")
+  inventoryLogs      InventoryLog[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+}
+
+model Branch {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  code      String
+  address   String?
+  city      String?
+  phone     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant        Tenant          @relation(fields: [tenantId], references: [id])
+  users         User[]
+  inventories   Inventory[]
+  outgoing      StockMovement[] @relation("SourceBranch")
+  incoming      StockMovement[] @relation("DestinationBranch")
+  inventoryLogs InventoryLog[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+model Product {
+  id          String      @id @default(cuid())
+  tenantId    String
+  name        String
+  sku         String
+  barcode     String?
+  unit        ProductUnit @default(PIECE)
+  category    String?
+  description String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  tenant        Tenant              @relation(fields: [tenantId], references: [id])
+  inventories   Inventory[]
+  movementItems StockMovementItem[]
+  inventoryLogs InventoryLog[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId, barcode])
+}
+
+model Inventory {
+  id           String   @id @default(cuid())
+  tenantId     String
+  branchId     String
+  productId    String
+  quantity     Int      @default(0)
+  minThreshold Int      @default(0)   // düşük stok eşiği
+  updatedAt    DateTime @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  branch  Branch  @relation(fields: [branchId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([branchId, productId])
+  @@index([tenantId])
+}
+
+model StockMovement {
+  id                  String         @id @default(cuid())
+  tenantId            String
+  sourceBranchId      String
+  destinationBranchId String
+  status              MovementStatus @default(PENDING)
+  note                String?
+  requestedById       String
+  approvedById        String?
+  shippedById         String?
+  receivedById        String?
+  createdAt           DateTime       @default(now())
+  approvedAt          DateTime?
+  shippedAt           DateTime?
+  receivedAt          DateTime?
+  updatedAt           DateTime       @updatedAt
+
+  tenant            Tenant              @relation(fields: [tenantId], references: [id])
+  sourceBranch      Branch              @relation("SourceBranch", fields: [sourceBranchId], references: [id])
+  destinationBranch Branch              @relation("DestinationBranch", fields: [destinationBranchId], references: [id])
+  requestedBy       User                @relation("RequestedBy", fields: [requestedById], references: [id])
+  approvedBy        User?               @relation("ApprovedBy", fields: [approvedById], references: [id])
+  shippedBy         User?               @relation("ShippedBy", fields: [shippedById], references: [id])
+  receivedBy        User?               @relation("ReceivedBy", fields: [receivedById], references: [id])
+  items             StockMovementItem[]
+
+  @@index([tenantId, status])
+}
+
+model StockMovementItem {
+  id         String @id @default(cuid())
+  movementId String
+  productId  String
+  quantity   Int
+
+  movement StockMovement @relation(fields: [movementId], references: [id], onDelete: Cascade)
+  product  Product       @relation(fields: [productId], references: [id])
+
+  @@unique([movementId, productId])
+  @@index([movementId])
+  @@index([productId])
+}
+
+model InventoryLog {
+  id               String          @id @default(cuid())
+  tenantId         String
+  branchId         String
+  productId        String
+  userId           String
+  type             TransactionType
+  quantityChange   Int
+  previousQuantity Int
+  newQuantity      Int
+  reason           String?
+  createdAt        DateTime        @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  branch  Branch  @relation(fields: [branchId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([branchId, productId])
+}
