@@ -1,0 +1,27 @@
+{
+  "name": "@stockroute/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "StockRoute web yönetim paneli (React + Vite)",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@stockroute/shared-types": "workspace:*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@stockroute/config": "workspace:*",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.2",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.8"
+  }
+}
