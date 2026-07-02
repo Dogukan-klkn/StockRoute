@@ -8,7 +8,7 @@ export class AppController {
   @ApiOperation({ summary: 'API sağlık kontrolü' })
   @ApiResponse({
     status: 200,
-    description: "API ayakta ise durum bilgisi döner.",
+    description: 'API ayakta ise durum bilgisi döner.',
     schema: {
       example: { status: 'ok', service: 'stockroute-api', timestamp: '2026-07-01T00:00:00.000Z' },
     },
