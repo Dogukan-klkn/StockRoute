@@ -2,8 +2,10 @@
 // kalıbını beklediğinden, paketi mutlak dosya yoluyla (require.resolve) devralıyoruz.
 module.exports = {
   extends: [require.resolve('@stockroute/config')],
+  env: {
+    browser: true,
+  },
   parserOptions: {
-    project: 'tsconfig.json',
-    tsconfigRootDir: __dirname,
+    ecmaFeatures: { jsx: true },
   },
 };

@@ -1,9 +1,25 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { AppController } from './app.controller';
+import { TenantResolverMiddleware } from './api/middleware/tenant-resolver.middleware';
+import { PrismaModule } from './infrastructure/prisma/prisma.module';
+import { TenantModule } from './infrastructure/tenant/tenant.module';
 
 @Module({
-  imports: [],
+  imports: [
+    // Global altyapı modülleri: tenant bağlamı + tenant-aware Prisma client.
+    TenantModule,
+    PrismaModule,
+  ],
   controllers: [AppController],
   providers: [],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  /**
+   * Tenant çözümleme middleware'ini tüm rotalara bağlar. Böylece her istek,
+   * controller'a ulaşmadan önce açılmış bir tenant bağlamı (AsyncLocalStorage)
+   * içinde yürür ve Prisma extension aktif tenant'ı görebilir.
+   */
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(TenantResolverMiddleware).forRoutes('*');
+  }
+}

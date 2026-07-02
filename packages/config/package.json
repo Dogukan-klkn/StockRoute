@@ -5,6 +5,7 @@
   "description": "Ortak ESLint / Prettier / tsconfig yapılandırması",
   "main": "index.js",
   "files": [
+    "index.js",
     "tsconfig.base.json",
     ".eslintrc.js",
     ".prettierrc"

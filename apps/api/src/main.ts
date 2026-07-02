@@ -16,10 +16,7 @@ async function bootstrap() {
     .setTitle('StockRoute API')
     .setDescription('Çok kiracılı kurumsal envanter & kaynak yönetim sistemi API dokümantasyonu')
     .setVersion('0.0.0')
-    .addBearerAuth(
-      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-      'access-token',
-    )
+    .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'access-token')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
