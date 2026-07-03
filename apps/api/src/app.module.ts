@@ -3,12 +3,16 @@ import { AppController } from './app.controller';
 import { TenantResolverMiddleware } from './api/middleware/tenant-resolver.middleware';
 import { PrismaModule } from './infrastructure/prisma/prisma.module';
 import { TenantModule } from './infrastructure/tenant/tenant.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
     // Global altyapı modülleri: tenant bağlamı + tenant-aware Prisma client.
     TenantModule,
     PrismaModule,
+    // Auth modülü; TenantResolverMiddleware'in JWT decode için ihtiyaç duyduğu
+    // JwtService'i (JwtModule) buradan sağlar (bkz. AuthModule exports).
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [],

@@ -1,3 +1,4 @@
+import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
@@ -10,6 +11,17 @@ async function bootstrap() {
     origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
     credentials: true,
   });
+
+  // Global DTO doğrulaması (class-validator): geçersiz gövde → 400.
+  // whitelist: DTO'da tanımsız alanları düşürür; forbidNonWhitelisted: fazladan
+  // alan gelirse hata verir; transform: gövdeyi DTO sınıf örneğine dönüştürür.
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
 
   // OpenAPI dokümanı (@nestjs/swagger ile üretilir)
   const config = new DocumentBuilder()
