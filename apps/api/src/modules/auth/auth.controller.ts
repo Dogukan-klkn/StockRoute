@@ -4,8 +4,9 @@ import { LoginDto } from '../../application/dto/auth/login.dto';
 import { RegisterTenantDto } from '../../application/dto/auth/register-tenant.dto';
 import type { AuthenticatedUser } from '../../application/interfaces/jwt-payload.interface';
 import { CurrentUser } from '../../api/decorators/current-user.decorator';
+import { CurrentTenant } from '../../api/decorators/current-tenant.decorator';
 import { JwtAuthGuard } from '../../api/guards/jwt-auth.guard';
-import { AuthService } from './auth.service';
+import { AuthService, type SafeUser } from './auth.service';
 
 /**
  * Kimlik doğrulama endpoint'leri (§9.1).
@@ -60,9 +61,15 @@ export class AuthController {
       "Authorization header'ındaki Bearer token ile doğrulanan kullanıcının " +
       'güncel profil bilgisini (şifre hariç) döner.',
   })
-  @ApiResponse({ status: 200, description: 'Kullanıcı profili (şifre hariç).' })
+  @ApiResponse({ status: 200, description: 'Kullanıcı profili (şifre hariç) + tenantId.' })
   @ApiResponse({ status: 401, description: 'Token yok, geçersiz veya kullanıcı pasif.' })
-  me(@CurrentUser() user: AuthenticatedUser) {
-    return this.authService.getProfile(user.userId, user.tenantId);
+  async me(
+    @CurrentUser() user: AuthenticatedUser,
+    @CurrentTenant() tenantId: string,
+  ): Promise<{ user: SafeUser; tenantId: string }> {
+    // @CurrentUser + @CurrentTenant ile token bağlamı temiz biçimde alınır;
+    // yanıt { user, tenantId } standart zarfına oturtulur (Gün 6).
+    const profile = await this.authService.getProfile(user.userId, tenantId);
+    return { user: profile, tenantId };
   }
 }
