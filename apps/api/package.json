@@ -10,7 +10,8 @@
     "start:prod": "node dist/main.js",
     "lint": "eslint \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
-    "prisma:seed": "prisma db seed"
+    "prisma:seed": "prisma db seed",
+    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -38,10 +39,16 @@
     "@nestjs/schematics": "^10.2.3",
     "@stockroute/config": "workspace:*",
     "@types/bcrypt": "^6.0.0",
+    "@nestjs/testing": "^10.4.4",
     "@types/express": "^5.0.0",
+    "@types/jest": "^29.5.14",
     "@types/node": "^22.7.4",
     "@types/passport-jwt": "^4.0.1",
+    "@types/supertest": "^6.0.2",
+    "jest": "^29.7.0",
     "prisma": "^6.19.3",
+    "supertest": "^7.0.0",
+    "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.4"
   }
