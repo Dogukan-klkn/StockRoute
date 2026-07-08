@@ -1019,7 +1019,7 @@ docs/
 
 **Gün 2 — Marka, Logo (1:1) & Mockup'lar (GenAI)**
 - 1:1 uygulama logosu + yatay wordmark (Gemini "Nano Banana") → `docs/brand`
-- Design token'ları (renk/tipografi/spacing) → `packages/ui-tokens`; `docs/design/design-system.md`
+- Design token'ları (renk/tipografi/sp acing) → `packages/ui-tokens`; `docs/design/design-system.md`
 - Tüm ekran mockup'ları (Gemini) → `docs/design/mockups`; prompt'lar `docs/design/mockups.md`
 - 📦 `design: add 1:1 logo, design tokens and genai mockups`
 
