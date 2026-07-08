@@ -4,6 +4,7 @@ import { TenantResolverMiddleware } from './api/middleware/tenant-resolver.middl
 import { PrismaModule } from './infrastructure/prisma/prisma.module';
 import { TenantModule } from './infrastructure/tenant/tenant.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { BranchesModule } from './modules/branches/branches.module';
 
 @Module({
   imports: [
@@ -13,6 +14,8 @@ import { AuthModule } from './modules/auth/auth.module';
     // Auth modülü; TenantResolverMiddleware'in JWT decode için ihtiyaç duyduğu
     // JwtService'i (JwtModule) buradan sağlar (bkz. AuthModule exports).
     AuthModule,
+    // Domain modülleri.
+    BranchesModule,
   ],
   controllers: [AppController],
   providers: [],
