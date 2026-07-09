@@ -5,6 +5,7 @@ import { PrismaModule } from './infrastructure/prisma/prisma.module';
 import { TenantModule } from './infrastructure/tenant/tenant.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BranchesModule } from './modules/branches/branches.module';
+import { ProductsModule } from './modules/products/products.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { BranchesModule } from './modules/branches/branches.module';
     AuthModule,
     // Domain modülleri.
     BranchesModule,
+    ProductsModule,
   ],
   controllers: [AppController],
   providers: [],
