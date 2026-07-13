@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, type Branch } from '@prisma/client';
 import type { CreateBranchDto } from '../../application/dto/branches/create-branch.dto';
 import type { UpdateBranchDto } from '../../application/dto/branches/update-branch.dto';

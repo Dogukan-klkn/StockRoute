@@ -1,0 +1,7 @@
+# Normalize all text files to LF in the repository and on checkout,
+# so prettier's endOfLine: "lf" rule holds on every platform.
+* text=auto eol=lf
+
+# Windows-specific scripts must keep CRLF to run correctly.
+*.bat text eol=crlf
+*.cmd text eol=crlf

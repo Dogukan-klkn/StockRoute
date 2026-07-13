@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, type Product } from '@prisma/client';
 import type { CreateProductDto } from '../../application/dto/products/create-product.dto';
 import type { UpdateProductDto } from '../../application/dto/products/update-product.dto';

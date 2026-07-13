@@ -1,11 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsInt,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  MaxLength,
-} from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 
 /**
  * Manuel stok düzeltme isteği (audit trail'li).
@@ -49,8 +43,7 @@ export class AdjustInventoryDto {
   quantity!: number;
 
   @ApiProperty({
-    description:
-      'Düzeltme gerekçesi. `InventoryLog.reason` alanına yazılır (audit trail).',
+    description: 'Düzeltme gerekçesi. `InventoryLog.reason` alanına yazılır (audit trail).',
     example: 'Sayım farkı: raf sayımında 5 adet eksik tespit edildi.',
     required: false,
     maxLength: 255,

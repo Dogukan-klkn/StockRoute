@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, TransactionType } from '@prisma/client';
 import type { AdjustInventoryDto } from '../../application/dto/inventory/adjust-inventory.dto';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';

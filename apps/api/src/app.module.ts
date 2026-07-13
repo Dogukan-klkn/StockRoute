@@ -6,6 +6,7 @@ import { TenantModule } from './infrastructure/tenant/tenant.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BranchesModule } from './modules/branches/branches.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { MovementsModule } from './modules/movements/movements.module';
 import { ProductsModule } from './modules/products/products.module';
 
 @Module({
@@ -20,6 +21,7 @@ import { ProductsModule } from './modules/products/products.module';
     BranchesModule,
     ProductsModule,
     InventoryModule,
+    MovementsModule,
   ],
   controllers: [AppController],
   providers: [],
