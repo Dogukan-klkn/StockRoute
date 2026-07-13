@@ -21,8 +21,7 @@ export class GetMovementsFilterDto {
   status?: MovementStatus;
 
   @ApiPropertyOptional({
-    description:
-      'Yalnızca bu şubenin kaynak veya hedef olduğu hareketleri getirir (cuid).',
+    description: 'Yalnızca bu şubenin kaynak veya hedef olduğu hareketleri getirir (cuid).',
     example: 'cm5x1b2c30001v8m9d4e5f6a7',
   })
   @IsOptional()
