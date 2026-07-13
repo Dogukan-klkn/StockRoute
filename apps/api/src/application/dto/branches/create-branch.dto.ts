@@ -1,11 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsBoolean,
-  IsOptional,
-  IsString,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
+import { IsBoolean, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 /**
  * Şube oluşturma isteği.
@@ -29,8 +23,7 @@ export class CreateBranchDto {
   name!: string;
 
   @ApiProperty({
-    description:
-      'Şube kodu. Tenant içinde benzersizdir (bkz. §7 — `@@unique([tenantId, code])`).',
+    description: 'Şube kodu. Tenant içinde benzersizdir (bkz. §7 — `@@unique([tenantId, code])`).',
     example: 'IST-MERKEZ',
     minLength: 1,
     maxLength: 40,

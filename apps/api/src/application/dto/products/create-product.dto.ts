@@ -1,13 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { ProductUnit } from '@prisma/client';
-import {
-  IsBoolean,
-  IsEnum,
-  IsOptional,
-  IsString,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
+import { IsBoolean, IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 /**
  * Ürün oluşturma isteği.
@@ -43,8 +36,7 @@ export class CreateProductDto {
   sku!: string;
 
   @ApiProperty({
-    description:
-      'Ürün barkodu. Mobil tarama akışında `GET /products/barcode/:barcode` ile aranır.',
+    description: 'Ürün barkodu. Mobil tarama akışında `GET /products/barcode/:barcode` ile aranır.',
     example: '8690000000017',
     required: false,
     maxLength: 50,
@@ -55,8 +47,7 @@ export class CreateProductDto {
   barcode?: string;
 
   @ApiProperty({
-    description:
-      'Ürünün stok takip birimi. Belirtilmezse veritabanında PIECE kabul edilir.',
+    description: 'Ürünün stok takip birimi. Belirtilmezse veritabanında PIECE kabul edilir.',
     enum: ProductUnit,
     enumName: 'ProductUnit',
     example: ProductUnit.LITER,
@@ -90,8 +81,7 @@ export class CreateProductDto {
   description?: string;
 
   @ApiProperty({
-    description:
-      'Ürünün aktif olup olmadığı. Belirtilmezse veritabanında true kabul edilir.',
+    description: 'Ürünün aktif olup olmadığı. Belirtilmezse veritabanında true kabul edilir.',
     example: true,
     required: false,
     default: true,

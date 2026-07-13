@@ -8,12 +8,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { AdjustInventoryDto } from '../../application/dto/inventory/adjust-inventory.dto';
 import { GetInventoryFilterDto } from '../../application/dto/inventory/get-inventory-filter.dto';

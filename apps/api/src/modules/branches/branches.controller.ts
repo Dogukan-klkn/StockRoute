@@ -10,12 +10,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { CreateBranchDto } from '../../application/dto/branches/create-branch.dto';
 import { UpdateBranchDto } from '../../application/dto/branches/update-branch.dto';

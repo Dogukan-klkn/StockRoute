@@ -11,13 +11,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiQuery,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { CreateProductDto } from '../../application/dto/products/create-product.dto';
 import { UpdateProductDto } from '../../application/dto/products/update-product.dto';
@@ -53,8 +47,7 @@ export class ProductsController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Ürün oluştur',
-    description:
-      'Aktif firmanın kataloğuna yeni bir ürün ekler. FIRM_ADMIN veya BRANCH_MANAGER.',
+    description: 'Aktif firmanın kataloğuna yeni bir ürün ekler. FIRM_ADMIN veya BRANCH_MANAGER.',
   })
   @ApiResponse({ status: 201, description: 'Ürün oluşturuldu.' })
   @ApiResponse({ status: 400, description: 'Doğrulama hatası (geçersiz gövde).' })
@@ -101,8 +94,7 @@ export class ProductsController {
   )
   @ApiOperation({
     summary: 'Barkod ile ürün bul',
-    description:
-      'Barkodu verilen ürünü döner (mobil tarama akışı). Tüm roller erişebilir.',
+    description: 'Barkodu verilen ürünü döner (mobil tarama akışı). Tüm roller erişebilir.',
   })
   @ApiResponse({ status: 200, description: 'Ürün detayı.' })
   @ApiResponse({ status: 401, description: 'Token yok, geçersiz veya kullanıcı pasif.' })
@@ -116,8 +108,7 @@ export class ProductsController {
   @Roles(UserRole.FIRM_ADMIN, UserRole.BRANCH_MANAGER, UserRole.WAREHOUSE_STAFF)
   @ApiOperation({
     summary: 'Ürün detayı',
-    description:
-      'Id ile tek bir ürünü döner. FIRM_ADMIN, BRANCH_MANAGER veya WAREHOUSE_STAFF.',
+    description: 'Id ile tek bir ürünü döner. FIRM_ADMIN, BRANCH_MANAGER veya WAREHOUSE_STAFF.',
   })
   @ApiResponse({ status: 200, description: 'Ürün detayı.' })
   @ApiResponse({ status: 401, description: 'Token yok, geçersiz veya kullanıcı pasif.' })
