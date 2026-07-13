@@ -103,10 +103,7 @@ export class MovementsService {
     }
 
     if (filter.branchId) {
-      where.OR = [
-        { sourceBranchId: filter.branchId },
-        { destinationBranchId: filter.branchId },
-      ];
+      where.OR = [{ sourceBranchId: filter.branchId }, { destinationBranchId: filter.branchId }];
     }
 
     return this.prisma.client.stockMovement.findMany({
@@ -201,10 +198,7 @@ export class MovementsService {
   async cancel(id: string, userId: string, userRole: UserRole): Promise<MovementWithItems> {
     const movement = await this.getMovementOrThrow(id);
 
-    if (
-      movement.status !== MovementStatus.PENDING &&
-      movement.status !== MovementStatus.APPROVED
-    ) {
+    if (movement.status !== MovementStatus.PENDING && movement.status !== MovementStatus.APPROVED) {
       throw new BadRequestException('Bu durumdaki hareket iptal edilemez');
     }
 
@@ -270,9 +264,7 @@ export class MovementsService {
         });
 
         if (!inventory) {
-          throw new BadRequestException(
-            `Kaynak şubede ${item.productId} için stok kaydı yok`,
-          );
+          throw new BadRequestException(`Kaynak şubede ${item.productId} için stok kaydı yok`);
         }
         if (inventory.quantity < item.quantity) {
           throw new BadRequestException(`Yetersiz stok: ${item.productId}`);
