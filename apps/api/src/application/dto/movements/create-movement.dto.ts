@@ -60,8 +60,7 @@ export class CreateMovementDto {
   sourceBranchId!: string;
 
   @ApiProperty({
-    description:
-      'Stokun gireceği hedef şubenin kimliği (cuid). Kaynak şubeden farklı olmalıdır.',
+    description: 'Stokun gireceği hedef şubenin kimliği (cuid). Kaynak şubeden farklı olmalıdır.',
     example: 'cm5x1b2c30003v8m9e7f8a9b0',
   })
   @IsString()
