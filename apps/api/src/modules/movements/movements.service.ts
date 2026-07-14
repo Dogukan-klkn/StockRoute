@@ -67,6 +67,22 @@ export class MovementsService {
       throw new BadRequestException('Kaynak ve hedef şube aynı olamaz');
     }
 
+    // Çapraz tenant referansını engelle (Gün 12 bulgusu): FK'lar DB seviyesinde
+    // yalnızca kaydın varlığını denetler, tenant'ını denetlemez. Şube ve ürünler
+    // aktif tenant kapsamında aranır; extension sorgulara `tenantId` eklediğinden
+    // başka tenant'ın kaydı "bulunamaz" ve istek 400 ile reddedilir.
+    const [sourceBranch, destinationBranch, products] = await Promise.all([
+      this.prisma.client.branch.findUnique({ where: { id: dto.sourceBranchId } }),
+      this.prisma.client.branch.findUnique({ where: { id: dto.destinationBranchId } }),
+      Promise.all(
+        dto.items.map((i) => this.prisma.client.product.findUnique({ where: { id: i.productId } })),
+      ),
+    ]);
+
+    if (!sourceBranch || !destinationBranch || products.some((p) => p === null)) {
+      throw new BadRequestException('Kaynak/hedef şube veya ürün bulunamadı');
+    }
+
     // `tenantId` extension tarafından create verisine atanır; derleyici bunu
     // bilmediği için veriyi `tenantId` hariç tipleyip öyle veriyoruz.
     const createData: Omit<Prisma.StockMovementUncheckedCreateInput, 'tenantId'> = {

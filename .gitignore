@@ -11,3 +11,6 @@ dist/
 build/
 .expo/
 web-build/
+
+# test coverage output
+coverage/
