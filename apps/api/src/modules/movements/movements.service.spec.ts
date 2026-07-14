@@ -29,6 +29,12 @@ const prismaMock = {
     inventoryLog: {
       create: jest.fn(),
     },
+    branch: {
+      findUnique: jest.fn(),
+    },
+    product: {
+      findUnique: jest.fn(),
+    },
     $transaction: jest.fn(),
   },
 };
@@ -76,6 +82,10 @@ describe('MovementsService', () => {
       async (cb: (tx: typeof prismaMock.client) => Promise<unknown>) => cb(prismaMock.client),
     );
 
+    // create'in tenant kapsamı doğrulaması için varsayılan: şube/ürün bulunur.
+    prismaMock.client.branch.findUnique.mockResolvedValue({ id: sourceBranchId });
+    prismaMock.client.product.findUnique.mockResolvedValue({ id: 'product-1' });
+
     const moduleRef = await Test.createTestingModule({
       providers: [MovementsService, { provide: PrismaService, useValue: prismaMock }],
     }).compile();
@@ -111,6 +121,24 @@ describe('MovementsService', () => {
       const dto = buildCreateDto({ destinationBranchId: sourceBranchId });
 
       await expect(service.create(dto, userId)).rejects.toBeInstanceOf(BadRequestException);
+      expect(prismaMock.client.stockMovement.create).not.toHaveBeenCalled();
+    });
+
+    it('şube tenant kapsamında bulunamazsa BadRequestException fırlatır', async () => {
+      prismaMock.client.branch.findUnique.mockResolvedValue(null);
+
+      await expect(service.create(buildCreateDto(), userId)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prismaMock.client.stockMovement.create).not.toHaveBeenCalled();
+    });
+
+    it('ürün tenant kapsamında bulunamazsa BadRequestException fırlatır', async () => {
+      prismaMock.client.product.findUnique.mockResolvedValue(null);
+
+      await expect(service.create(buildCreateDto(), userId)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
       expect(prismaMock.client.stockMovement.create).not.toHaveBeenCalled();
     });
 
