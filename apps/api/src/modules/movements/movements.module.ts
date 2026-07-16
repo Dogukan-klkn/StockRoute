@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MovementsController } from '../../api/controllers/movements.controller';
+import { RealtimeModule } from '../realtime/realtime.module';
 import { MovementsService } from './movements.service';
 
 /**
@@ -13,6 +14,7 @@ import { MovementsService } from './movements.service';
  * noktalarına erişebilmesi için export edilir.
  */
 @Module({
+  imports: [RealtimeModule],
   controllers: [MovementsController],
   providers: [MovementsService],
   exports: [MovementsService],
