@@ -1,6 +1,10 @@
 {
   "extends": "@stockroute/config/tsconfig.base.json",
   "compilerOptions": {
+    // Çıktı Node (NestJS/CJS) ve bundler'lar (Next/Metro) tarafından sorunsuz
+    // tüketilsin diye CommonJS emit edilir; tipler dist/index.d.ts'ten okunur.
+    "module": "CommonJS",
+    "moduleResolution": "Node",
     "outDir": "dist",
     "rootDir": "src"
   },
