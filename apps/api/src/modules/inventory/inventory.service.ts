@@ -1,7 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, TransactionType } from '@prisma/client';
+import { InventoryGateway } from '../../api/gateways/inventory.gateway';
 import type { AdjustInventoryDto } from '../../application/dto/inventory/adjust-inventory.dto';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { TenantContextService } from '../../infrastructure/tenant/tenant-context.service';
 
 /**
  * `findAll` için opsiyonel liste filtreleri.
@@ -34,7 +36,13 @@ export type InventoryWithRelations = Prisma.InventoryGetPayload<{
  */
 @Injectable()
 export class InventoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(InventoryService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly gateway: InventoryGateway,
+    private readonly tenantContext: TenantContextService,
+  ) {}
 
   /**
    * Aktif tenant'ın envanter kayıtlarını ilişkili ürün ve şube bilgisiyle döner.
@@ -91,7 +99,7 @@ export class InventoryService {
       throw new NotFoundException('Ürün bulunamadı.');
     }
 
-    return this.prisma.client.$transaction(async (tx) => {
+    const adjusted = await this.prisma.client.$transaction(async (tx) => {
       // `tenantId` extension tarafından hem `where`'e hem `create` verisine
       // uygulanır; derleyici bunu bilmediği için create verisini `tenantId`
       // hariç tipleyip öyle veriyoruz (bkz. tenant.extension.ts).
@@ -141,5 +149,27 @@ export class InventoryService {
 
       return inventory;
     });
+
+    // Olay, transaction commit edildikten SONRA yayınlanır (rollback'te yanlış
+    // olay gitmesin). Yayın "best-effort"tür: hata iş akışını kırmaz, loglanır.
+    // `tenantId` payload'a konmaz; yalnızca room yönlendirmesi için kullanılır.
+    try {
+      const tenantId = this.tenantContext.getTenantId();
+      if (tenantId) {
+        this.gateway.emitInventoryUpdated(tenantId, {
+          branchId: dto.branchId,
+          productId: dto.productId,
+          quantity: adjusted.quantity,
+        });
+      } else {
+        this.logger.warn('Tenant bağlamı yok; inventory:updated yayınlanmadı.');
+      }
+    } catch (error) {
+      this.logger.warn(
+        `inventory:updated yayınlanamadı: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+
+    return adjusted;
   }
 }
