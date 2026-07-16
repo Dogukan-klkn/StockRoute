@@ -2,12 +2,16 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { MovementStatus, Prisma, TransactionType, UserRole } from '@prisma/client';
+import type { InventoryUpdatedPayload } from '@stockroute/shared-types';
+import { InventoryGateway } from '../../api/gateways/inventory.gateway';
 import type { CreateMovementDto } from '../../application/dto/movements/create-movement.dto';
 import type { GetMovementsFilterDto } from '../../application/dto/movements/get-movements-filter.dto';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { TenantContextService } from '../../infrastructure/tenant/tenant-context.service';
 
 /** Kalemleriyle birlikte dönen stok hareketi. */
 export type MovementWithItems = Prisma.StockMovementGetPayload<{
@@ -52,7 +56,13 @@ export type MovementDetail = Prisma.StockMovementGetPayload<{
  */
 @Injectable()
 export class MovementsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(MovementsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly gateway: InventoryGateway,
+    private readonly tenantContext: TenantContextService,
+  ) {}
 
   /**
    * Yeni transfer talebi oluşturur (`PENDING`).
@@ -101,7 +111,16 @@ export class MovementsService {
       include: { items: true },
     });
 
-    // TODO(day13): emit 'movement:created' — payload: { movement }
+    this.emitToTenant((tenantId) =>
+      this.gateway.emitMovementCreated(tenantId, {
+        movement: {
+          id: movement.id,
+          sourceBranchId: movement.sourceBranchId,
+          destinationBranchId: movement.destinationBranchId,
+          status: movement.status,
+        },
+      }),
+    );
 
     return movement;
   }
@@ -172,7 +191,13 @@ export class MovementsService {
       include: { items: true },
     });
 
-    // TODO(day13): emit 'movement:statusChanged' — payload: { movementId: id, status: 'APPROVED' }
+    this.emitToTenant((tenantId) =>
+      this.gateway.emitMovementStatusChanged(tenantId, {
+        movementId: id,
+        status: MovementStatus.APPROVED,
+        branchIds: [updated.sourceBranchId, updated.destinationBranchId],
+      }),
+    );
 
     return updated;
   }
@@ -198,7 +223,13 @@ export class MovementsService {
       include: { items: true },
     });
 
-    // TODO(day13): emit 'movement:statusChanged' — payload: { movementId: id, status: 'REJECTED' }
+    this.emitToTenant((tenantId) =>
+      this.gateway.emitMovementStatusChanged(tenantId, {
+        movementId: id,
+        status: MovementStatus.REJECTED,
+        branchIds: [updated.sourceBranchId, updated.destinationBranchId],
+      }),
+    );
 
     return updated;
   }
@@ -230,7 +261,13 @@ export class MovementsService {
       include: { items: true },
     });
 
-    // TODO(day13): emit 'movement:statusChanged' — payload: { movementId: id, status: 'CANCELLED' }
+    this.emitToTenant((tenantId) =>
+      this.gateway.emitMovementStatusChanged(tenantId, {
+        movementId: id,
+        status: MovementStatus.CANCELLED,
+        branchIds: [updated.sourceBranchId, updated.destinationBranchId],
+      }),
+    );
 
     return updated;
   }
@@ -246,7 +283,11 @@ export class MovementsService {
    * @param userId Sevk eden kullanıcı (JWT'den, `shippedById`).
    */
   async ship(id: string, userId: string): Promise<MovementWithItems> {
-    return this.prisma.client.$transaction(async (tx) => {
+    // Kalem başına yeni stok miktarları transaction içinde toplanır; olaylar
+    // commit'ten SONRA yayınlanır (rollback'te yanlış olay gitmesin).
+    const inventoryUpdates: InventoryUpdatedPayload[] = [];
+
+    const updated = await this.prisma.client.$transaction(async (tx) => {
       const movement = await tx.stockMovement.findUnique({
         where: { id },
         include: { items: true },
@@ -259,7 +300,7 @@ export class MovementsService {
         throw new BadRequestException('Bu durumdaki hareket sevk edilemez');
       }
 
-      const updated = await tx.stockMovement.update({
+      const shipped = await tx.stockMovement.update({
         where: { id },
         data: {
           status: MovementStatus.IN_TRANSIT,
@@ -309,13 +350,28 @@ export class MovementsService {
           data: logData as Prisma.InventoryLogUncheckedCreateInput,
         });
 
-        // TODO(day13): emit 'inventory:updated' — payload: { branchId: movement.sourceBranchId, productId: item.productId, quantity: newQuantity }
+        inventoryUpdates.push({
+          branchId: movement.sourceBranchId,
+          productId: item.productId,
+          quantity: newQuantity,
+        });
       }
 
-      // TODO(day13): emit 'movement:statusChanged' — payload: { movementId: id, status: 'IN_TRANSIT' }
-
-      return updated;
+      return shipped;
     });
+
+    this.emitToTenant((tenantId) => {
+      this.gateway.emitMovementStatusChanged(tenantId, {
+        movementId: id,
+        status: MovementStatus.IN_TRANSIT,
+        branchIds: [updated.sourceBranchId, updated.destinationBranchId],
+      });
+      for (const payload of inventoryUpdates) {
+        this.gateway.emitInventoryUpdated(tenantId, payload);
+      }
+    });
+
+    return updated;
   }
 
   /**
@@ -329,7 +385,11 @@ export class MovementsService {
    * @param userId Teslim alan kullanıcı (JWT'den, `receivedById`).
    */
   async receive(id: string, userId: string): Promise<MovementWithItems> {
-    return this.prisma.client.$transaction(async (tx) => {
+    // Kalem başına yeni stok miktarları transaction içinde toplanır; olaylar
+    // commit'ten SONRA yayınlanır (rollback'te yanlış olay gitmesin).
+    const inventoryUpdates: InventoryUpdatedPayload[] = [];
+
+    const updated = await this.prisma.client.$transaction(async (tx) => {
       const movement = await tx.stockMovement.findUnique({
         where: { id },
         include: { items: true },
@@ -342,7 +402,7 @@ export class MovementsService {
         throw new BadRequestException('Bu durumdaki hareket teslim alınamaz');
       }
 
-      const updated = await tx.stockMovement.update({
+      const received = await tx.stockMovement.update({
         where: { id },
         data: {
           status: MovementStatus.RECEIVED,
@@ -398,13 +458,49 @@ export class MovementsService {
           data: logData as Prisma.InventoryLogUncheckedCreateInput,
         });
 
-        // TODO(day13): emit 'inventory:updated' — payload: { branchId: movement.destinationBranchId, productId: item.productId, quantity: newQuantity }
+        inventoryUpdates.push({
+          branchId: movement.destinationBranchId,
+          productId: item.productId,
+          quantity: newQuantity,
+        });
       }
 
-      // TODO(day13): emit 'movement:statusChanged' — payload: { movementId: id, status: 'RECEIVED' }
-
-      return updated;
+      return received;
     });
+
+    this.emitToTenant((tenantId) => {
+      this.gateway.emitMovementStatusChanged(tenantId, {
+        movementId: id,
+        status: MovementStatus.RECEIVED,
+        branchIds: [updated.sourceBranchId, updated.destinationBranchId],
+      });
+      for (const payload of inventoryUpdates) {
+        this.gateway.emitInventoryUpdated(tenantId, payload);
+      }
+    });
+
+    return updated;
+  }
+
+  /**
+   * Gerçek zamanlı yayını "best-effort" yürütür: aktif tenant bağlamından
+   * `tenantId` alınır ve `emit` çağrılır. Bağlam yoksa ya da yayın hata
+   * fırlatırsa iş akışı KIRILMAZ — yalnızca loglanır (bkz. plan §10).
+   * `tenantId` payload'a konmaz; sadece room yönlendirmesi için kullanılır.
+   */
+  private emitToTenant(emit: (tenantId: string) => void): void {
+    try {
+      const tenantId = this.tenantContext.getTenantId();
+      if (!tenantId) {
+        this.logger.warn('Tenant bağlamı yok; gerçek zamanlı olay yayınlanmadı.');
+        return;
+      }
+      emit(tenantId);
+    } catch (error) {
+      this.logger.warn(
+        `Gerçek zamanlı olay yayınlanamadı: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /** Hareketi tenant kapsamında getirir; yoksa 404 fırlatır. */
