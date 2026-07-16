@@ -1,8 +1,10 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { MovementStatus, TransactionType, UserRole } from '@prisma/client';
+import { InventoryGateway } from '../../api/gateways/inventory.gateway';
 import type { CreateMovementDto } from '../../application/dto/movements/create-movement.dto';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { TenantContextService } from '../../infrastructure/tenant/tenant-context.service';
 import { MovementsService } from './movements.service';
 
 /**
@@ -37,6 +39,19 @@ const prismaMock = {
     },
     $transaction: jest.fn(),
   },
+};
+
+/** Gün 13: gateway emit'leri mock'lanır; gerçek Socket.io sunucusu açılmaz. */
+const gatewayMock = {
+  emitInventoryUpdated: jest.fn(),
+  emitMovementCreated: jest.fn(),
+  emitMovementStatusChanged: jest.fn(),
+  emitNotification: jest.fn(),
+};
+
+const tenantId = 'tenant-1';
+const tenantContextMock = {
+  getTenantId: jest.fn(),
 };
 
 const userId = 'user-requester';
@@ -86,8 +101,16 @@ describe('MovementsService', () => {
     prismaMock.client.branch.findUnique.mockResolvedValue({ id: sourceBranchId });
     prismaMock.client.product.findUnique.mockResolvedValue({ id: 'product-1' });
 
+    // Emit'lerin tenant room'una yönlenebilmesi için varsayılan: bağlam dolu.
+    tenantContextMock.getTenantId.mockReturnValue(tenantId);
+
     const moduleRef = await Test.createTestingModule({
-      providers: [MovementsService, { provide: PrismaService, useValue: prismaMock }],
+      providers: [
+        MovementsService,
+        { provide: PrismaService, useValue: prismaMock },
+        { provide: InventoryGateway, useValue: gatewayMock },
+        { provide: TenantContextService, useValue: tenantContextMock },
+      ],
     }).compile();
 
     service = moduleRef.get(MovementsService);
@@ -534,6 +557,173 @@ describe('MovementsService', () => {
       await service.receive(movementId, userId);
 
       expect(prismaMock.client.$transaction).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('gerçek zamanlı olay yayını (Gün 13)', () => {
+    it('create sonrası movement:created tenant room bilgisiyle emit edilir', async () => {
+      const created = buildMovement();
+      prismaMock.client.stockMovement.create.mockResolvedValue(created);
+
+      await service.create(buildCreateDto(), userId);
+
+      expect(gatewayMock.emitMovementCreated).toHaveBeenCalledTimes(1);
+      expect(gatewayMock.emitMovementCreated).toHaveBeenCalledWith(tenantId, {
+        movement: {
+          id: created.id,
+          sourceBranchId: created.sourceBranchId,
+          destinationBranchId: created.destinationBranchId,
+          status: created.status,
+        },
+      });
+    });
+
+    it('approve sonrası movement:statusChanged APPROVED ile emit edilir', async () => {
+      prismaMock.client.stockMovement.findUnique.mockResolvedValue(buildMovement());
+      prismaMock.client.stockMovement.update.mockResolvedValue(
+        buildMovement({ status: MovementStatus.APPROVED }),
+      );
+
+      await service.approve(movementId, userId);
+
+      expect(gatewayMock.emitMovementStatusChanged).toHaveBeenCalledWith(tenantId, {
+        movementId,
+        status: MovementStatus.APPROVED,
+        branchIds: [sourceBranchId, destinationBranchId],
+      });
+    });
+
+    it('reject sonrası movement:statusChanged REJECTED ile emit edilir', async () => {
+      prismaMock.client.stockMovement.findUnique.mockResolvedValue(buildMovement());
+      prismaMock.client.stockMovement.update.mockResolvedValue(
+        buildMovement({ status: MovementStatus.REJECTED }),
+      );
+
+      await service.reject(movementId, userId);
+
+      expect(gatewayMock.emitMovementStatusChanged).toHaveBeenCalledWith(tenantId, {
+        movementId,
+        status: MovementStatus.REJECTED,
+        branchIds: [sourceBranchId, destinationBranchId],
+      });
+    });
+
+    it('cancel sonrası movement:statusChanged CANCELLED ile emit edilir', async () => {
+      prismaMock.client.stockMovement.findUnique.mockResolvedValue(buildMovement());
+      prismaMock.client.stockMovement.update.mockResolvedValue(
+        buildMovement({ status: MovementStatus.CANCELLED }),
+      );
+
+      await service.cancel(movementId, userId, UserRole.FIRM_ADMIN);
+
+      expect(gatewayMock.emitMovementStatusChanged).toHaveBeenCalledWith(tenantId, {
+        movementId,
+        status: MovementStatus.CANCELLED,
+        branchIds: [sourceBranchId, destinationBranchId],
+      });
+    });
+
+    it('ship sonrası statusChanged IN_TRANSIT ve her kalem için inventory:updated emit edilir', async () => {
+      const movement = buildMovement({
+        status: MovementStatus.APPROVED,
+        items: [
+          { productId: 'product-1', quantity: 10 },
+          { productId: 'product-2', quantity: 20 },
+        ],
+      });
+      prismaMock.client.stockMovement.findUnique.mockResolvedValue(movement);
+      prismaMock.client.stockMovement.update.mockResolvedValue(
+        buildMovement({ status: MovementStatus.IN_TRANSIT }),
+      );
+      prismaMock.client.inventory.findUnique
+        .mockResolvedValueOnce({ id: 'inv-1', quantity: 100 })
+        .mockResolvedValueOnce({ id: 'inv-2', quantity: 50 });
+      prismaMock.client.inventory.update.mockResolvedValue({});
+      prismaMock.client.inventoryLog.create.mockResolvedValue({});
+
+      await service.ship(movementId, userId);
+
+      expect(gatewayMock.emitMovementStatusChanged).toHaveBeenCalledWith(tenantId, {
+        movementId,
+        status: MovementStatus.IN_TRANSIT,
+        branchIds: [sourceBranchId, destinationBranchId],
+      });
+      expect(gatewayMock.emitInventoryUpdated).toHaveBeenCalledTimes(2);
+      expect(gatewayMock.emitInventoryUpdated).toHaveBeenNthCalledWith(1, tenantId, {
+        branchId: sourceBranchId,
+        productId: 'product-1',
+        quantity: 90,
+      });
+      expect(gatewayMock.emitInventoryUpdated).toHaveBeenNthCalledWith(2, tenantId, {
+        branchId: sourceBranchId,
+        productId: 'product-2',
+        quantity: 30,
+      });
+    });
+
+    it('receive sonrası statusChanged RECEIVED ve her kalem için inventory:updated emit edilir', async () => {
+      prismaMock.client.stockMovement.findUnique.mockResolvedValue(
+        buildMovement({ status: MovementStatus.IN_TRANSIT }),
+      );
+      prismaMock.client.stockMovement.update.mockResolvedValue(
+        buildMovement({ status: MovementStatus.RECEIVED }),
+      );
+      prismaMock.client.inventory.findUnique.mockResolvedValue({ id: 'inv-dst', quantity: 50 });
+      prismaMock.client.inventory.upsert.mockResolvedValue({});
+      prismaMock.client.inventoryLog.create.mockResolvedValue({});
+
+      await service.receive(movementId, userId);
+
+      expect(gatewayMock.emitMovementStatusChanged).toHaveBeenCalledWith(tenantId, {
+        movementId,
+        status: MovementStatus.RECEIVED,
+        branchIds: [sourceBranchId, destinationBranchId],
+      });
+      expect(gatewayMock.emitInventoryUpdated).toHaveBeenCalledTimes(1);
+      expect(gatewayMock.emitInventoryUpdated).toHaveBeenCalledWith(tenantId, {
+        branchId: destinationBranchId,
+        productId: 'product-1',
+        quantity: 60,
+      });
+    });
+
+    it('geçersiz durum geçişinde (PENDING → ship) hiçbir olay emit edilmez', async () => {
+      prismaMock.client.stockMovement.findUnique.mockResolvedValue(buildMovement());
+
+      await expect(service.ship(movementId, userId)).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(gatewayMock.emitMovementStatusChanged).not.toHaveBeenCalled();
+      expect(gatewayMock.emitInventoryUpdated).not.toHaveBeenCalled();
+      expect(gatewayMock.emitMovementCreated).not.toHaveBeenCalled();
+    });
+
+    it('geçersiz durum geçişinde (APPROVED → approve) emit edilmez', async () => {
+      prismaMock.client.stockMovement.findUnique.mockResolvedValue(
+        buildMovement({ status: MovementStatus.APPROVED }),
+      );
+
+      await expect(service.approve(movementId, userId)).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(gatewayMock.emitMovementStatusChanged).not.toHaveBeenCalled();
+    });
+
+    it('gateway emit hata fırlatırsa iş akışı kırılmaz (best-effort yayın)', async () => {
+      const created = buildMovement();
+      prismaMock.client.stockMovement.create.mockResolvedValue(created);
+      gatewayMock.emitMovementCreated.mockImplementation(() => {
+        throw new Error('socket patladı');
+      });
+
+      await expect(service.create(buildCreateDto(), userId)).resolves.toBe(created);
+    });
+
+    it('tenant bağlamı yoksa emit çağrılmaz ve akış kırılmaz', async () => {
+      tenantContextMock.getTenantId.mockReturnValue(undefined);
+      const created = buildMovement();
+      prismaMock.client.stockMovement.create.mockResolvedValue(created);
+
+      await expect(service.create(buildCreateDto(), userId)).resolves.toBe(created);
+      expect(gatewayMock.emitMovementCreated).not.toHaveBeenCalled();
     });
   });
 });

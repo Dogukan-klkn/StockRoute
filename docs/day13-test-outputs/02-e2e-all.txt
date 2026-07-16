@@ -1,0 +1,9 @@
+PASS test/realtime.e2e-spec.ts (8.837 s)
+PASS test/movements.e2e-spec.ts
+PASS test/tenant-isolation.e2e-spec.ts
+
+Test Suites: 3 passed, 3 total
+Tests:       38 passed, 38 total
+Snapshots:   0 total
+Time:        15.616 s
+Ran all test suites.

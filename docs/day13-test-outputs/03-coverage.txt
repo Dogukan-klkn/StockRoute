@@ -1,0 +1,76 @@
+PASS src/modules/inventory/inventory.service.spec.ts (7.881 s)
+PASS src/api/gateways/inventory.gateway.spec.ts (7.935 s)
+PASS src/modules/movements/movements.service.spec.ts (7.98 s)
+--------------------------------|---------|----------|---------|---------|-------------------
+File                            | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+--------------------------------|---------|----------|---------|---------|-------------------
+All files                       |   29.27 |    27.97 |    28.2 |   30.29 |                   
+ src                            |       0 |        0 |       0 |       0 |                   
+  app.controller.ts             |       0 |      100 |       0 |       0 | 1-17              
+  app.module.ts                 |       0 |      100 |       0 |       0 | 1-39              
+  main.ts                       |       0 |        0 |       0 |       0 | 1-50              
+ src/api/controllers            |       0 |      100 |       0 |       0 |                   
+  movements.controller.ts       |       0 |      100 |       0 |       0 | 1-228             
+ src/api/decorators             |       0 |      100 |       0 |       0 |                   
+  current-tenant.decorator.ts   |       0 |      100 |       0 |       0 | 1-24              
+  current-user.decorator.ts     |       0 |      100 |       0 |       0 | 1-17              
+  roles.decorator.ts            |       0 |      100 |       0 |       0 | 1-31              
+ src/api/gateways               |   95.34 |    78.57 |   88.88 |   95.12 |                   
+  inventory.gateway.ts          |   95.34 |    78.57 |   88.88 |   95.12 | 75-76             
+ src/api/guards                 |       0 |        0 |       0 |       0 |                   
+  jwt-auth.guard.ts             |       0 |      100 |     100 |       0 | 1-14              
+  roles.guard.ts                |       0 |        0 |       0 |       0 | 1-52              
+ src/api/middleware             |       0 |        0 |       0 |       0 |                   
+  tenant-resolver.middleware.ts |       0 |        0 |       0 |       0 | 1-71              
+ src/application/dto/auth       |       0 |      100 |     100 |       0 |                   
+  login.dto.ts                  |       0 |      100 |     100 |       0 | 1-35              
+  register-tenant.dto.ts        |       0 |      100 |     100 |       0 | 1-67              
+ src/application/dto/branches   |       0 |      100 |     100 |       0 |                   
+  create-branch.dto.ts          |       0 |      100 |     100 |       0 | 1-77              
+  update-branch.dto.ts          |       0 |      100 |     100 |       0 | 1-13              
+ src/application/dto/inventory  |       0 |        0 |       0 |       0 |                   
+  adjust-inventory.dto.ts       |       0 |      100 |     100 |       0 | 1-54              
+  get-inventory-filter.dto.ts   |       0 |        0 |       0 |       0 | 1-37              
+ src/application/dto/movements  |       0 |      100 |       0 |       0 |                   
+  create-movement.dto.ts        |       0 |      100 |       0 |       0 | 1-87              
+  get-movements-filter.dto.ts   |       0 |      100 |     100 |       0 | 1-29              
+ src/application/dto/products   |       0 |      100 |     100 |       0 |                   
+  create-product.dto.ts         |       0 |      100 |     100 |       0 | 1-91              
+  update-product.dto.ts         |       0 |      100 |     100 |       0 | 1-14              
+ src/infrastructure/auth        |       0 |        0 |       0 |       0 |                   
+  jwt.strategy.ts               |       0 |        0 |       0 |       0 | 1-45              
+ src/infrastructure/prisma      |      25 |        0 |       0 |    23.4 |                   
+  prisma.module.ts              |       0 |      100 |     100 |       0 | 1-16              
+  prisma.service.ts             |   43.75 |      100 |       0 |   38.46 | 27-53             
+  tenant.extension.ts           |   19.35 |        0 |       0 |   19.35 | 54-131            
+ src/infrastructure/tenant      |   35.71 |      100 |       0 |      30 |                   
+  tenant-context.service.ts     |   55.55 |      100 |       0 |   42.85 | 27-49             
+  tenant.module.ts              |       0 |      100 |     100 |       0 | 1-17              
+ src/modules/auth               |       0 |        0 |       0 |       0 |                   
+  auth.controller.ts            |       0 |      100 |       0 |       0 | 1-73              
+  auth.module.ts                |       0 |        0 |     100 |       0 | 1-36              
+  auth.service.ts               |       0 |        0 |       0 |       0 | 1-137             
+ src/modules/branches           |       0 |        0 |       0 |       0 |                   
+  branches.controller.ts        |       0 |      100 |       0 |       0 | 1-112             
+  branches.module.ts            |       0 |      100 |     100 |       0 | 1-18              
+  branches.service.ts           |       0 |        0 |       0 |       0 | 1-120             
+ src/modules/inventory          |   51.51 |       50 |   42.85 |   53.33 |                   
+  inventory.controller.ts       |       0 |      100 |       0 |       0 | 1-87              
+  inventory.module.ts           |       0 |      100 |     100 |       0 | 1-20              
+  inventory.service.ts          |   82.92 |       50 |      75 |   82.05 | 54-64,99          
+ src/modules/movements          |    91.2 |    85.71 |     100 |    92.5 |                   
+  movements.module.ts           |       0 |      100 |     100 |       0 | 1-22              
+  movements.service.ts          |   96.61 |    85.71 |     100 |   96.52 | 170,297,399,511   
+ src/modules/products           |       0 |        0 |       0 |       0 |                   
+  products.controller.ts        |       0 |      100 |       0 |       0 | 1-148             
+  products.module.ts            |       0 |      100 |     100 |       0 | 1-18              
+  products.service.ts           |       0 |        0 |       0 |       0 | 1-164             
+ src/modules/realtime           |       0 |        0 |     100 |       0 |                   
+  realtime.module.ts            |       0 |        0 |     100 |       0 | 1-29              
+--------------------------------|---------|----------|---------|---------|-------------------
+
+Test Suites: 3 passed, 3 total
+Tests:       58 passed, 58 total
+Snapshots:   0 total
+Time:        20.598 s, estimated 25 s
+Ran all test suites.

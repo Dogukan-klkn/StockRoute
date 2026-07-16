@@ -1,0 +1,4 @@
+
+> @stockroute/api@0.0.0 lint C:\Users\Dogukan\Desktop\Truncgil_staj\apps\api
+> eslint "src/**/*.ts"
+

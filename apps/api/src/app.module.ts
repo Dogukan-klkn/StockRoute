@@ -8,6 +8,7 @@ import { BranchesModule } from './modules/branches/branches.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { MovementsModule } from './modules/movements/movements.module';
 import { ProductsModule } from './modules/products/products.module';
+import { RealtimeModule } from './modules/realtime/realtime.module';
 
 @Module({
   imports: [
@@ -17,6 +18,8 @@ import { ProductsModule } from './modules/products/products.module';
     // Auth modülü; TenantResolverMiddleware'in JWT decode için ihtiyaç duyduğu
     // JwtService'i (JwtModule) buradan sağlar (bkz. AuthModule exports).
     AuthModule,
+    // Gerçek zamanlı yayın (Socket.io gateway — Gün 13).
+    RealtimeModule,
     // Domain modülleri.
     BranchesModule,
     ProductsModule,

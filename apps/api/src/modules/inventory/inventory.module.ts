@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { RealtimeModule } from '../realtime/realtime.module';
 import { InventoryController } from './inventory.controller';
 import { InventoryService } from './inventory.service';
 
@@ -12,6 +13,7 @@ import { InventoryService } from './inventory.service';
  * import gerekmez.
  */
 @Module({
+  imports: [RealtimeModule],
   controllers: [InventoryController],
   providers: [InventoryService],
 })

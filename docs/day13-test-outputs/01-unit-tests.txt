@@ -1,0 +1,9 @@
+PASS src/modules/inventory/inventory.service.spec.ts (7.005 s)
+PASS src/modules/movements/movements.service.spec.ts (7.084 s)
+PASS src/api/gateways/inventory.gateway.spec.ts (7.58 s)
+
+Test Suites: 3 passed, 3 total
+Tests:       58 passed, 58 total
+Snapshots:   0 total
+Time:        8.651 s
+Ran all test suites.

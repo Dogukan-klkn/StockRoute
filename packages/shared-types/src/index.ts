@@ -9,7 +9,6 @@
  *   - entities.ts       → Tenant, Branch, Product, Inventory, StockMovement
  *   - dto/              → CreateBranchDto, CreateMovementDto, ...
  *   - api-contracts.ts  → istek/yanıt tipleri
- *   - socket-events.ts  → real-time olay adları ve payload tipleri
  */
 
-export {};
+export * from './socket-events';
