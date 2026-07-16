@@ -1,0 +1,4 @@
+
+> @stockroute/api@0.0.0 build C:\Users\Dogukan\Desktop\Truncgil_staj\apps\api
+> nest build
+
