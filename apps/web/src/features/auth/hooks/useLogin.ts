@@ -17,8 +17,8 @@ export function useLogin() {
       const { data } = await apiClient.post<LoginResponse>('/auth/login', input);
       return data;
     },
-    onSuccess: (data) => {
-      setAuth(data.accessToken, data.user);
+    onSuccess: (data, variables) => {
+      setAuth(data.accessToken, data.user, variables.tenantSlug);
     },
   });
 }
