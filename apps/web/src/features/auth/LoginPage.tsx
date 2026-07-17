@@ -10,8 +10,10 @@ import {
 } from '@mui/material';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
+import { Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { Logo } from '../../components/Logo';
+import { useAuthStore } from '../../lib/auth-store';
 import { useLogin } from './hooks/useLogin';
 import { loginSchema, type LoginInput } from './schemas';
 
@@ -25,6 +27,7 @@ function FieldLabel({ children }: { children: string }) {
 }
 
 export function LoginPage() {
+  const isAuthenticated = useAuthStore((state) => state.accessToken !== null);
   const login = useLogin();
   const {
     register,
@@ -38,6 +41,11 @@ export function LoginPage() {
   const isUnauthorized = axios.isAxiosError(login.error) && login.error.response?.status === 401;
 
   const onSubmit = handleSubmit((input) => login.mutate(input));
+
+  // Oturum zaten açıksa (veya login başarılı olduysa) panele yönlendir.
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <Box
