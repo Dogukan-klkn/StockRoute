@@ -24,7 +24,7 @@ export const theme = createTheme({
     fontFamily: typography.fontFamily.base,
     h1: { fontWeight: typography.fontWeight.bold },
     h2: { fontWeight: typography.fontWeight.bold },
-    h3: { fontWeight: typography.fontWeight.semibold },
+    h3: { fontWeight: typography.fontWeight.semibold, fontSize: typography.fontSize.xxl },
     h4: { fontWeight: typography.fontWeight.semibold },
     h5: { fontWeight: typography.fontWeight.semibold },
     h6: { fontWeight: typography.fontWeight.semibold },
