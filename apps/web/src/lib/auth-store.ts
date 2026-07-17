@@ -14,7 +14,9 @@ export interface AuthUser {
 interface AuthState {
   accessToken: string | null;
   user: AuthUser | null;
-  setAuth: (token: string, user: AuthUser) => void;
+  /** Giriş yapılan firmanın slug'ı — API firma adını dönmediği için topbar'da gösterilir. */
+  tenantSlug: string | null;
+  setAuth: (token: string, user: AuthUser, tenantSlug: string) => void;
   logout: () => void;
   isAuthenticated: () => boolean;
 }
@@ -24,10 +26,12 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       accessToken: null,
       user: null,
-      setAuth: (accessToken, user) => set({ accessToken, user }),
-      logout: () => set({ accessToken: null, user: null }),
+      tenantSlug: null,
+      setAuth: (accessToken, user, tenantSlug) => set({ accessToken, user, tenantSlug }),
+      logout: () => set({ accessToken: null, user: null, tenantSlug: null }),
       isAuthenticated: () => get().accessToken !== null,
       // TODO(gün15+): JWT expire kontrolü eklenecek
+      // TODO(gün15): firma adı /auth/me veya tenant endpoint'inden alınıp gösterilecek
     }),
     { name: 'stockroute-auth' },
   ),
