@@ -5,10 +5,10 @@
  * tip uyuşmazlıkları derleme zamanında yakalanır (bkz. implementation_plan.md §5.5).
  *
  * İlerleyen fazlarda aşağıdaki modüller eklenip buradan re-export edilecek:
- *   - enums.ts          → UserRole, MovementStatus, ProductUnit
  *   - entities.ts       → Tenant, Branch, Product, Inventory, StockMovement
  *   - dto/              → CreateBranchDto, CreateMovementDto, ...
  *   - api-contracts.ts  → istek/yanıt tipleri
  */
 
+export * from './enums';
 export * from './socket-events';
