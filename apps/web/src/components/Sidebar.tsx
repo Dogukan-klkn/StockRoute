@@ -17,24 +17,50 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import PeopleIcon from '@mui/icons-material/People';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { UserRole } from '@stockroute/shared-types';
 import { useAuthStore } from '../lib/auth-store';
 import { Logo } from './Logo';
 
 export const SIDEBAR_WIDTH = 240;
 
+/** Tüm roller (rol kısıtı olmayan menü öğeleri için). */
+const ALL_ROLES = Object.values(UserRole);
+
+/**
+ * Menü öğeleri ve her birini görebilen roller (plan §8 yetki matrisi):
+ *  - Şubeler: listeleme yetkisi FIRM_ADMIN + BRANCH_MANAGER'da
+ *  - Ürünler: + WAREHOUSE_STAFF
+ *  - Kullanıcılar: yalnızca FIRM_ADMIN
+ */
 const NAV_ITEMS = [
-  { label: 'Kontrol Paneli', path: '/', icon: <DashboardIcon /> },
-  { label: 'Şubeler', path: '/branches', icon: <StoreIcon /> },
-  { label: 'Ürünler', path: '/products', icon: <Inventory2Icon /> },
-  { label: 'Envanter', path: '/inventory', icon: <WarehouseIcon /> },
-  { label: 'Transferler', path: '/movements', icon: <SwapHorizIcon /> },
-  { label: 'Kullanıcılar', path: '/users', icon: <PeopleIcon /> },
+  { label: 'Kontrol Paneli', path: '/', icon: <DashboardIcon />, roles: ALL_ROLES },
+  {
+    label: 'Şubeler',
+    path: '/branches',
+    icon: <StoreIcon />,
+    roles: [UserRole.FIRM_ADMIN, UserRole.BRANCH_MANAGER],
+  },
+  {
+    label: 'Ürünler',
+    path: '/products',
+    icon: <Inventory2Icon />,
+    roles: [UserRole.FIRM_ADMIN, UserRole.BRANCH_MANAGER, UserRole.WAREHOUSE_STAFF],
+  },
+  { label: 'Envanter', path: '/inventory', icon: <WarehouseIcon />, roles: ALL_ROLES },
+  { label: 'Transferler', path: '/movements', icon: <SwapHorizIcon />, roles: ALL_ROLES },
+  { label: 'Kullanıcılar', path: '/users', icon: <PeopleIcon />, roles: [UserRole.FIRM_ADMIN] },
 ] as const;
 
 export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const logout = useAuthStore((state) => state.logout);
+  const role = useAuthStore((state) => state.user?.role);
+
+  // Kullanıcının rolüne açık olmayan menü öğeleri hiç render edilmez.
+  const visibleItems = NAV_ITEMS.filter(
+    (item) => role !== undefined && (item.roles as readonly UserRole[]).includes(role),
+  );
 
   const isActive = (path: string) =>
     path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
@@ -68,7 +94,7 @@ export function Sidebar() {
         Menü
       </Typography>
       <List sx={{ flexGrow: 1 }}>
-        {NAV_ITEMS.map((item) => {
+        {visibleItems.map((item) => {
           const active = isActive(item.path);
           return (
             <ListItemButton
