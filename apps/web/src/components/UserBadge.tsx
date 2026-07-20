@@ -1,23 +1,6 @@
 import { Avatar, Box, Typography } from '@mui/material';
-import { UserRole } from '@stockroute/shared-types';
 import { useAuthStore } from '../lib/auth-store';
-
-const ROLE_LABELS: Record<UserRole, string> = {
-  [UserRole.SUPER_ADMIN]: 'Süper Admin',
-  [UserRole.FIRM_ADMIN]: 'Firma Yöneticisi',
-  [UserRole.BRANCH_MANAGER]: 'Şube Müdürü',
-  [UserRole.WAREHOUSE_STAFF]: 'Depo Personeli',
-  [UserRole.FIELD_STAFF]: 'Saha Personeli',
-};
-
-/** Rol etiketinin rengi — sx renk yolu olarak (theme paletinden çözülür). */
-const ROLE_COLORS: Record<UserRole, string> = {
-  [UserRole.SUPER_ADMIN]: 'primary.dark',
-  [UserRole.FIRM_ADMIN]: 'primary.main',
-  [UserRole.BRANCH_MANAGER]: 'info.main',
-  [UserRole.WAREHOUSE_STAFF]: 'warning.main',
-  [UserRole.FIELD_STAFF]: 'text.secondary',
-};
+import { ROLE_COLORS, ROLE_LABELS } from '../lib/role-labels';
 
 /** "Ayşe Yılmaz" → "AY" gibi en fazla iki baş harf üretir. */
 function initialsOf(fullName: string): string {
