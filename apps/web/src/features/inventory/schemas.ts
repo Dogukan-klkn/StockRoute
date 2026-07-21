@@ -32,3 +32,19 @@ export type AdjustStockFormValues = z.output<typeof adjustStockSchema>;
  * başlar ve doğrulamada sayıya çevrilir.
  */
 export type AdjustStockFormInput = z.input<typeof adjustStockSchema>;
+
+/**
+ * Düşük stok eşiği form şeması.
+ *
+ * Backend `UpdateThresholdDto` ile hizalıdır: tam sayı ve negatif olamaz.
+ * Eşik bir ayardır; stok miktarını değiştirmez ve audit kaydı yazmaz.
+ */
+export const thresholdSchema = z.object({
+  minThreshold: z.coerce
+    .number({ error: 'Geçerli bir sayı girin' })
+    .int('Eşik tam sayı olmalı')
+    .min(0, 'Eşik negatif olamaz'),
+});
+
+export type ThresholdFormValues = z.output<typeof thresholdSchema>;
+export type ThresholdFormInput = z.input<typeof thresholdSchema>;
