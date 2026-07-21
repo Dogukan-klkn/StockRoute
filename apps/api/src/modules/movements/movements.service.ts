@@ -67,7 +67,12 @@ export class MovementsService {
   /**
    * Yeni transfer talebi oluşturur (`PENDING`).
    *
-   * İş kuralı: kaynak ve hedef şube aynı olamaz → 400.
+   * İş kuralları (ikisi de 400):
+   *  - kaynak ve hedef şube aynı olamaz,
+   *  - aynı ürün kalemlerde birden fazla kez yer alamaz.
+   *
+   * Her iki kural da veritabanına gitmeden, en ucuz kontroller önce olacak
+   * şekilde denetlenir.
    *
    * @param dto    Talep gövdesi (şubeler, not, kalemler).
    * @param userId Talebi oluşturan kullanıcı (JWT'den, `requestedById`).
@@ -75,6 +80,14 @@ export class MovementsService {
   async create(dto: CreateMovementDto, userId: string): Promise<MovementWithItems> {
     if (dto.sourceBranchId === dto.destinationBranchId) {
       throw new BadRequestException('Kaynak ve hedef şube aynı olamaz');
+    }
+
+    // Tekrarlı ürün kalemi `@@unique([movementId, productId])` kısıtını ihlal
+    // eder; burada yakalanmazsa create sırasında P2002 olarak patlar ve 500
+    // dönerdi. Öngörülebilir bir kullanıcı hatası olduğu için 400 ile karşılanır.
+    const productIds = dto.items.map((item) => item.productId);
+    if (new Set(productIds).size !== productIds.length) {
+      throw new BadRequestException('Aynı ürün bir transferde birden fazla kez eklenemez');
     }
 
     // Çapraz tenant referansını engelle (Gün 12 bulgusu): FK'lar DB seviyesinde
