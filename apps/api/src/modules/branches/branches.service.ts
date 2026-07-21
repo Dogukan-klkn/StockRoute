@@ -5,6 +5,18 @@ import type { UpdateBranchDto } from '../../application/dto/branches/update-bran
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 
 /**
+ * Seçim listeleri için minimal şube görünümü (`GET /branches/selectable`).
+ *
+ * Yalnızca bir seçiciyi doldurmak için gereken alanları içerir; yönetsel
+ * alanlar (adres, telefon, şehir, durum, tarihler) bilinçli olarak yoktur.
+ */
+export interface SelectableBranch {
+  id: string;
+  name: string;
+  code: string;
+}
+
+/**
  * Şube (Branch) iş kuralları (Application katmanı).
  *
  * `Branch` domaini için CRUD operasyonlarını sağlar. Controller iş kuralı
@@ -54,6 +66,25 @@ export class BranchesService {
   async findAll(): Promise<Branch[]> {
     return this.prisma.client.branch.findMany({
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * Seçim listeleri için minimal şube görünümü döner (yalnızca aktif şubeler).
+   *
+   * `findAll`'dan farkı bilinçlidir: burada yönetsel alanlar (adres, telefon,
+   * şehir, durum, tarihler) **dönmez**; yalnızca bir seçiciyi doldurmak için
+   * gereken alanlar seçilir. Bu sayede uç nokta tüm rollere açılabilir —
+   * transfer talebi tüm rollere açıktır ve iki şube seçmeyi gerektirir
+   * (bkz. §9.6; `GET /branches` yönetsel uç olarak iki rolde kalır).
+   *
+   * Pasif şubeler listelenmez: kapalı bir şubeye transfer açılmamalıdır.
+   */
+  async findSelectable(): Promise<SelectableBranch[]> {
+    return this.prisma.client.branch.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, code: true },
+      orderBy: { name: 'asc' },
     });
   }
 
