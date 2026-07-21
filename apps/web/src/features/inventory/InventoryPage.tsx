@@ -32,6 +32,7 @@ import { useSnackbar } from '../../components/SnackbarProvider';
 import { useAuthStore } from '../../lib/auth-store';
 import { getApiErrorMessage } from '../../lib/api-error';
 import { useDebouncedValue } from '../../lib/useDebouncedValue';
+import { useProfile } from '../auth/hooks/useProfile';
 import { useBranches } from '../branches/hooks/useBranches';
 import { PRODUCT_UNIT_LABELS } from '../products/schemas';
 import { AdjustStockDialog } from './AdjustStockDialog';
@@ -52,8 +53,8 @@ const ADJUST_ROLES: readonly UserRole[] = [
  * `GET /branches` yetkisine sahip roller (branches.controller.ts).
  *
  * Bu liste envanter yetkisinden dardır: WAREHOUSE_STAFF ve FIELD_STAFF envanteri
- * görebilir ama şube listesini çekemez (403). Bu rollerde şube seçici gizlenir ve
- * tenant genelindeki envanter şube sütunuyla listelenir (bkz. Gün 16 notu).
+ * görebilir ama şube listesini çekemez (403). Bu rollerde şube seçici yerine
+ * kullanıcının kendi şubesi (`/auth/me` → `user.branch`) kullanılır.
  */
 const BRANCH_LIST_ROLES: readonly UserRole[] = [
   UserRole.SUPER_ADMIN,
@@ -70,6 +71,9 @@ const ROWS_PER_PAGE = 10;
  * Backend sayfalama ve ürün araması sunmadığından ikisi de istemci tarafında
  * yapılır: liste tek istekte gelir, arama ve sayfalama bellekte uygulanır.
  * Mockup'taki "Dışa Aktar" eylemi karşılık gelen bir uç nokta olmadığı için yok.
+ *
+ * Şube kapsamı role göre belirlenir: şube listeleyebilen roller seçiciden şube
+ * seçer; diğerleri (WAREHOUSE_STAFF, FIELD_STAFF) kendi atanmış şubelerini görür.
  */
 export function InventoryPage() {
   const role = useAuthStore((state) => state.user?.role);
@@ -82,25 +86,34 @@ export function InventoryPage() {
   const [page, setPage] = useState(0);
   const search = useDebouncedValue(searchInput, 500);
 
-  // Şube seçici yalnızca /branches çağırabilen rollerde gösterilir; diğerlerinde
-  // seçici olmadan tüm şubelerin envanteri listelenir (şube sütunuyla).
+  // Şube seçici yalnızca /branches çağırabilen rollerde gösterilir; diğer roller
+  // kendi atanmış şubeleriyle (profil) sınırlıdır.
   const canListBranches = role !== undefined && BRANCH_LIST_ROLES.includes(role);
   const { data: branches, isLoading: branchesLoading } = useBranches(canListBranches);
+  const { data: profile, isLoading: profileLoading } = useProfile();
+
+  // Etkin şube: seçiciden gelen değer ya da kullanıcının kendi şubesi.
+  const ownBranch = profile?.user.branch ?? null;
+  const effectiveBranchId = canListBranches ? branchId : (ownBranch?.id ?? '');
+  // Şubesi olmayan (ve seçici de göremeyen) kullanıcı envanter göremez.
+  const missingOwnBranch = !canListBranches && !profileLoading && ownBranch === null;
+
   const {
     data: inventory,
-    isLoading,
+    isLoading: inventoryLoading,
     isError,
   } = useInventory(
-    { branchId: branchId || undefined, lowStock: lowStockOnly },
-    canListBranches ? Boolean(branchId) : true,
+    { branchId: effectiveBranchId || undefined, lowStock: lowStockOnly },
+    Boolean(effectiveBranchId),
   );
+  // Profil beklenirken envanter sorgusu henüz açılmamıştır; bu aralıkta "kayıt yok"
+  // boş durumunun görünmemesi için yükleme durumu birleştirilir.
+  const isLoading = inventoryLoading || (!canListBranches && profileLoading);
   const { adjustMutation } = useInventoryMutations();
 
   const [adjusting, setAdjusting] = useState<InventoryItem | null>(null);
 
-  // Şube sütunu yalnızca tüm şubeler listelenirken anlamlıdır.
-  const showBranchColumn = !canListBranches;
-  const COLUMN_COUNT = 5 + (canAdjust ? 1 : 0) + (showBranchColumn ? 1 : 0);
+  const COLUMN_COUNT = canAdjust ? 6 : 5;
 
   // İstemci tarafı arama: ürün adı veya SKU üzerinden.
   const visibleItems = useMemo(() => {
@@ -146,7 +159,9 @@ export function InventoryPage() {
     );
   };
 
-  const selectedBranch = branches?.find((branch) => branch.id === branchId);
+  const branchLabel = canListBranches
+    ? (branches?.find((branch) => branch.id === branchId)?.name ?? '')
+    : (ownBranch?.name ?? '');
 
   return (
     <Box>
@@ -185,6 +200,13 @@ export function InventoryPage() {
               </MenuItem>
             )}
           </TextField>
+        ) : ownBranch ? (
+          // Şube seçemeyen roller kendi şubeleriyle sınırlıdır; kapsam yine de görünür olmalı.
+          <Chip
+            icon={<WarehouseOutlinedIcon fontSize="small" />}
+            label={ownBranch.name}
+            variant="outlined"
+          />
         ) : null}
 
         <FormControlLabel
@@ -209,7 +231,7 @@ export function InventoryPage() {
             resetPage();
           }}
           placeholder="Ürün ara..."
-          disabled={canListBranches && !branchId}
+          disabled={!effectiveBranchId}
           sx={{ minWidth: 260 }}
           slotProps={{
             input: {
@@ -223,7 +245,15 @@ export function InventoryPage() {
         />
       </Stack>
 
-      {canListBranches && !branchId ? (
+      {missingOwnBranch ? (
+        <Paper>
+          <EmptyState
+            icon={<WarehouseOutlinedIcon fontSize="inherit" />}
+            title="Hesabınıza şube atanmamış"
+            description="Envanteri görüntülemek için hesabınıza bir şube atanmalı. Lütfen yöneticinizle görüşün."
+          />
+        </Paper>
+      ) : canListBranches && !branchId ? (
         <Paper>
           <EmptyState
             icon={<WarehouseOutlinedIcon fontSize="inherit" />}
@@ -260,7 +290,6 @@ export function InventoryPage() {
               <TableHead>
                 <TableRow>
                   <TableCell>ÜRÜN</TableCell>
-                  {showBranchColumn ? <TableCell>ŞUBE</TableCell> : null}
                   <TableCell>KATEGORİ</TableCell>
                   <TableCell align="right">MEVCUT MİKTAR</TableCell>
                   <TableCell align="right">MİN EŞİK</TableCell>
@@ -300,7 +329,6 @@ export function InventoryPage() {
                             {item.product.sku}
                           </Typography>
                         </TableCell>
-                        {showBranchColumn ? <TableCell>{item.branch.name}</TableCell> : null}
                         <TableCell>{item.product.category ?? '—'}</TableCell>
                         <TableCell align="right">
                           <Typography
@@ -354,8 +382,7 @@ export function InventoryPage() {
               }}
             >
               <Typography variant="body2" color="text.secondary">
-                {selectedBranch?.name ?? 'Tüm şubeler'} · {visibleItems.length} ürün ·{' '}
-                {lowStockCount} düşük stok
+                {branchLabel} · {visibleItems.length} ürün · {lowStockCount} düşük stok
               </Typography>
               <TablePagination
                 component="div"
