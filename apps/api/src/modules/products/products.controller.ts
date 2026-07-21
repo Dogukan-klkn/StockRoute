@@ -30,7 +30,9 @@ import { ProductsService } from './products.service';
  * korunur; sıra önemlidir (önce kimlik, sonra yetki — bkz. RolesGuard notu).
  * Aktif tenant bağlamı JWT'den gelir; ürün sorguları Prisma extension ile
  * otomatik o tenant'a kısıtlanır (bkz. §6.1). Yetki matrisi §8:
- *  - Okuma (GET liste/detay): FIRM_ADMIN, BRANCH_MANAGER, WAREHOUSE_STAFF
+ *  - Liste (GET /products): tüm roller — transfer talebi tüm rollere açıktır ve
+ *    ürün seçmeyi gerektirir (bkz. §9.6).
+ *  - Detay (GET /products/:id): FIRM_ADMIN, BRANCH_MANAGER, WAREHOUSE_STAFF
  *  - Barkod ile arama (mobil tarama): tüm roller (FIELD_STAFF dahil)
  *  - POST/PATCH: FIRM_ADMIN, BRANCH_MANAGER
  *  - DELETE: yalnızca FIRM_ADMIN
@@ -59,12 +61,19 @@ export class ProductsController {
   }
 
   @Get()
-  @Roles(UserRole.FIRM_ADMIN, UserRole.BRANCH_MANAGER, UserRole.WAREHOUSE_STAFF)
+  @Roles(
+    UserRole.FIRM_ADMIN,
+    UserRole.BRANCH_MANAGER,
+    UserRole.WAREHOUSE_STAFF,
+    UserRole.FIELD_STAFF,
+  )
   @ApiOperation({
     summary: 'Ürünleri listele / ara',
     description:
       'Aktif firmaya ait ürünleri döner. `search` isim veya SKU içinde arar, ' +
-      '`category` kategoriye göre daraltır. FIRM_ADMIN, BRANCH_MANAGER veya WAREHOUSE_STAFF.',
+      '`category` kategoriye göre daraltır. Tüm roller erişebilir: transfer talebi ' +
+      'tüm rollere açıktır ve ürün seçmeyi gerektirir (bkz. §9.6). Ürün kataloğu ' +
+      'yönetsel veri içermez; ürün yönetimi (POST/PATCH/DELETE) yetkileri değişmez.',
   })
   @ApiQuery({
     name: 'search',
