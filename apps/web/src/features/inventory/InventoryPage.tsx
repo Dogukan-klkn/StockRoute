@@ -17,11 +17,13 @@ import {
   TablePagination,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import SearchIcon from '@mui/icons-material/Search';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import WarehouseOutlinedIcon from '@mui/icons-material/WarehouseOutlined';
 import { UserRole } from '@stockroute/shared-types';
@@ -36,9 +38,10 @@ import { useProfile } from '../auth/hooks/useProfile';
 import { useBranches } from '../branches/hooks/useBranches';
 import { PRODUCT_UNIT_LABELS } from '../products/schemas';
 import { AdjustStockDialog } from './AdjustStockDialog';
+import { ThresholdDialog } from './ThresholdDialog';
 import { useInventory } from './hooks/useInventory';
 import { useInventoryMutations } from './hooks/useInventoryMutations';
-import type { AdjustStockFormValues } from './schemas';
+import type { AdjustStockFormValues, ThresholdFormValues } from './schemas';
 import { isLowStock, type InventoryItem } from './types';
 
 /** Stok düzeltme yetkisine sahip roller (inventory.controller.ts — POST /inventory/adjust). */
@@ -62,6 +65,17 @@ const BRANCH_LIST_ROLES: readonly UserRole[] = [
   UserRole.BRANCH_MANAGER,
 ];
 
+/**
+ * Düşük stok eşiğini belirleyebilen roller
+ * (inventory.controller.ts — PATCH /inventory/:id/threshold).
+ * Eşik belirlemek yönetim kararıdır; WAREHOUSE_STAFF stok düzeltir ama eşik belirlemez.
+ */
+const THRESHOLD_ROLES: readonly UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.FIRM_ADMIN,
+  UserRole.BRANCH_MANAGER,
+];
+
 const ROWS_PER_PAGE = 10;
 
 /**
@@ -78,6 +92,7 @@ const ROWS_PER_PAGE = 10;
 export function InventoryPage() {
   const role = useAuthStore((state) => state.user?.role);
   const canAdjust = role !== undefined && ADJUST_ROLES.includes(role);
+  const canEditThreshold = role !== undefined && THRESHOLD_ROLES.includes(role);
   const { showSuccess, showError } = useSnackbar();
 
   const [branchId, setBranchId] = useState('');
@@ -109,9 +124,10 @@ export function InventoryPage() {
   // Profil beklenirken envanter sorgusu henüz açılmamıştır; bu aralıkta "kayıt yok"
   // boş durumunun görünmemesi için yükleme durumu birleştirilir.
   const isLoading = inventoryLoading || (!canListBranches && profileLoading);
-  const { adjustMutation } = useInventoryMutations();
+  const { adjustMutation, thresholdMutation } = useInventoryMutations();
 
   const [adjusting, setAdjusting] = useState<InventoryItem | null>(null);
+  const [editingThreshold, setEditingThreshold] = useState<InventoryItem | null>(null);
 
   const COLUMN_COUNT = canAdjust ? 6 : 5;
 
@@ -155,6 +171,22 @@ export function InventoryPage() {
           setAdjusting(null);
         },
         onError: (error) => showError(getApiErrorMessage(error, 'Stok güncellenemedi.')),
+      },
+    );
+  };
+
+  const handleThreshold = (values: ThresholdFormValues) => {
+    if (!editingThreshold) {
+      return;
+    }
+    thresholdMutation.mutate(
+      { id: editingThreshold.id, minThreshold: values.minThreshold },
+      {
+        onSuccess: () => {
+          showSuccess('Düşük stok eşiği güncellendi.');
+          setEditingThreshold(null);
+        },
+        onError: (error) => showError(getApiErrorMessage(error, 'Eşik güncellenemedi.')),
       },
     );
   };
@@ -342,7 +374,23 @@ export function InventoryPage() {
                             {PRODUCT_UNIT_LABELS[item.product.unit].toLocaleLowerCase('tr')}
                           </Typography>
                         </TableCell>
-                        <TableCell align="right">{item.minThreshold}</TableCell>
+                        <TableCell align="right">
+                          {canEditThreshold ? (
+                            <Tooltip title="Eşiği düzenle">
+                              <Button
+                                size="small"
+                                color="inherit"
+                                onClick={() => setEditingThreshold(item)}
+                                sx={{ minWidth: 0, px: 1, fontWeight: 400 }}
+                              >
+                                {item.minThreshold}
+                                <TuneOutlinedIcon sx={{ fontSize: 14, ml: 0.5, opacity: 0.6 }} />
+                              </Button>
+                            </Tooltip>
+                          ) : (
+                            item.minThreshold
+                          )}
+                        </TableCell>
                         <TableCell>
                           <Chip
                             size="small"
@@ -405,6 +453,16 @@ export function InventoryPage() {
           submitting={adjustMutation.isPending}
           onSubmit={handleAdjust}
           onClose={() => setAdjusting(null)}
+        />
+      ) : null}
+
+      {canEditThreshold ? (
+        <ThresholdDialog
+          open={editingThreshold !== null}
+          item={editingThreshold}
+          submitting={thresholdMutation.isPending}
+          onSubmit={handleThreshold}
+          onClose={() => setEditingThreshold(null)}
         />
       ) : null}
     </Box>
