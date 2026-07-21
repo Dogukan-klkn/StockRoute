@@ -29,8 +29,10 @@ import { BranchesService } from './branches.service';
  * korunur; sıra önemlidir (önce kimlik, sonra yetki — bkz. RolesGuard notu).
  * Aktif tenant bağlamı JWT'den gelir; şube sorguları Prisma extension ile
  * otomatik o tenant'a kısıtlanır (bkz. §6.1). Yetki matrisi §8:
- *  - Okuma (GET): FIRM_ADMIN, BRANCH_MANAGER
+ *  - Okuma (GET / GET :id): FIRM_ADMIN, BRANCH_MANAGER
  *  - Yazma (POST/PATCH/DELETE): yalnızca FIRM_ADMIN
+ *  - GET /selectable: tüm roller — yönetsel detay içermeyen, seçim amaçlı
+ *    minimal liste (bkz. `findSelectable`).
  */
 @ApiTags('branches')
 @ApiBearerAuth('access-token')
@@ -66,6 +68,45 @@ export class BranchesController {
   @ApiResponse({ status: 403, description: 'Bu işlem için gerekli yetkiye sahip değilsiniz.' })
   findAll() {
     return this.branchesService.findAll();
+  }
+
+  // DİKKAT: Bu rota `@Get(':id')`'den ÖNCE tanımlanmalıdır; aksi halde NestJS
+  // "selectable" değerini `:id` parametresi olarak eşleştirir ve 404 döner.
+  @Get('selectable')
+  @Roles(
+    UserRole.SUPER_ADMIN,
+    UserRole.FIRM_ADMIN,
+    UserRole.BRANCH_MANAGER,
+    UserRole.WAREHOUSE_STAFF,
+    UserRole.FIELD_STAFF,
+  )
+  @ApiOperation({
+    summary: 'Seçilebilir şubeler',
+    description:
+      'Transfer/seçim için minimal şube listesi (id, ad, kod). Yönetsel detay ' +
+      '(adres, telefon, şehir, durum) içermez ve yalnızca aktif şubeleri döner. ' +
+      'Transfer talebi tüm rollere açık olduğu ve iki şube seçmeyi gerektirdiği ' +
+      'için bu uç tüm rollere açıktır; yönetsel liste için `GET /branches`.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Seçilebilir şube listesi (ada göre sıralı).',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', example: 'cm5x1b2c30001v8m9d4e5f6a7' },
+          name: { type: 'string', example: 'İstanbul Merkez Depo' },
+          code: { type: 'string', example: 'IST-MERKEZ' },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Token yok, geçersiz veya kullanıcı pasif.' })
+  @ApiResponse({ status: 403, description: 'Bu işlem için gerekli yetkiye sahip değilsiniz.' })
+  findSelectable() {
+    return this.branchesService.findSelectable();
   }
 
   @Get(':id')
