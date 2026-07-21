@@ -13,6 +13,27 @@ const BCRYPT_SALT_ROUNDS = 10;
 /** Yanıtlarda dönülen, şifre alanı çıkarılmış güvenli kullanıcı görünümü. */
 export type SafeUser = Omit<User, 'passwordHash'>;
 
+/** `/auth/me` yanıtında dönen, kullanıcıya atanmış şubenin özet görünümü. */
+export interface ProfileBranch {
+  id: string;
+  name: string;
+  code: string;
+  city: string | null;
+}
+
+/**
+ * `/auth/me` profil görünümü: `SafeUser` + atanmış şube özeti.
+ *
+ * Şube bilgisi yalnızca profile eklenir; `login`/`registerTenant` yanıtlarının
+ * `SafeUser` sözleşmesi değişmeden kalır. Bu sayede şube listeleme yetkisi
+ * olmayan roller (WAREHOUSE_STAFF, FIELD_STAFF) kendi şubelerini öğrenebilir
+ * (bkz. branches.controller.ts — GET /branches yalnızca yönetici rollerine açık).
+ */
+export interface UserProfile extends SafeUser {
+  /** Kullanıcıya şube atanmamışsa (ör. FIRM_ADMIN) `null`. */
+  branch: ProfileBranch | null;
+}
+
 /**
  * Kimlik doğrulama iş kuralları (Application katmanı).
  *
@@ -106,17 +127,27 @@ export class AuthService {
   /**
    * Token'dan gelen `userId` + `tenantId` ile kullanıcının güncel profilini döner.
    * Kullanıcı bu arada silinmiş/pasifleşmişse 401 döner.
+   *
+   * Atanmış şube (varsa) özet olarak yanıta eklenir; şube listeleme yetkisi
+   * olmayan roller kendi şubelerini buradan öğrenir (bkz. `UserProfile`).
    */
-  async getProfile(userId: string, tenantId: string): Promise<SafeUser> {
+  async getProfile(userId: string, tenantId: string): Promise<UserProfile> {
     const user = await this.prisma.client.user.findFirst({
       where: { id: userId, tenantId },
+      include: { branch: true },
     });
 
     if (!user || !user.isActive) {
       throw new UnauthorizedException('Kullanıcı bulunamadı veya pasif.');
     }
 
-    return this.toSafeUser(user);
+    const { branch, ...rest } = user;
+    return {
+      ...this.toSafeUser(rest),
+      branch: branch
+        ? { id: branch.id, name: branch.name, code: branch.code, city: branch.city }
+        : null,
+    };
   }
 
   /** Kullanıcıdan JWT üretir; claim'ler: sub, tenantId, role (bkz. §6.1). */

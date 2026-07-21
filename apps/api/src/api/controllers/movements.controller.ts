@@ -58,7 +58,11 @@ export class MovementsController {
       'Tüm roller erişebilir.',
   })
   @ApiResponse({ status: 201, description: 'Talep oluşturuldu; kalemleriyle birlikte döner.' })
-  @ApiResponse({ status: 400, description: 'Doğrulama hatası veya kaynak ve hedef şube aynı.' })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Doğrulama hatası, kaynak ve hedef şube aynı, ya da aynı ürün birden fazla kalemde.',
+  })
   @ApiResponse({ status: 401, description: 'Token yok, geçersiz veya kullanıcı pasif.' })
   @ApiResponse({ status: 403, description: 'Bu işlem için gerekli yetkiye sahip değilsiniz.' })
   create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateMovementDto) {

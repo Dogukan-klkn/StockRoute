@@ -69,6 +69,31 @@ export class InventoryService {
   }
 
   /**
+   * Envanter kaydının düşük stok eşiğini (`minThreshold`) günceller.
+   *
+   * Bu bir **ayar** değişikliğidir, stok hareketi değil: `quantity` değişmez ve
+   * bilinçli olarak `InventoryLog` yazılmaz (audit trail stok hareketleri
+   * içindir — bkz. `adjustInventory`). Kayıt aktif tenant kapsamında aranır;
+   * extension `where`'e `tenantId` eklediğinden başka tenant'ın kaydı bulunamaz.
+   *
+   * @param id           Envanter kaydının kimliği (cuid).
+   * @param minThreshold Yeni eşik değeri (negatif olamaz — DTO doğrular).
+   */
+  async updateThreshold(id: string, minThreshold: number): Promise<InventoryWithRelations> {
+    const existing = await this.prisma.client.inventory.findFirst({ where: { id } });
+
+    if (!existing) {
+      throw new NotFoundException('Envanter kaydı bulunamadı.');
+    }
+
+    return this.prisma.client.inventory.update({
+      where: { id },
+      data: { minThreshold },
+      include: { product: true, branch: true },
+    });
+  }
+
+  /**
    * Manuel stok düzeltmesi yapar ve audit trail yazar (bkz. plan §9.5).
    *
    * Akış:

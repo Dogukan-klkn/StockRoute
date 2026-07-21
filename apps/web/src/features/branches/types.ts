@@ -17,3 +17,16 @@ export interface Branch {
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * `GET /branches/selectable` yanıt tipi — seçim listeleri için minimal görünüm.
+ *
+ * Yönetsel alanlar (adres, şehir, telefon, durum, tarihler) bilinçli olarak
+ * yoktur; bu sayede uç nokta tüm rollere açıktır (bkz. apps/api —
+ * BranchesService.findSelectable). Yalnızca aktif şubeleri içerir.
+ */
+export interface SelectableBranch {
+  id: string;
+  name: string;
+  code: string;
+}

@@ -4,6 +4,8 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -12,6 +14,7 @@ import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import { UserRole } from '@prisma/client';
 import { AdjustInventoryDto } from '../../application/dto/inventory/adjust-inventory.dto';
 import { GetInventoryFilterDto } from '../../application/dto/inventory/get-inventory-filter.dto';
+import { UpdateThresholdDto } from '../../application/dto/inventory/update-threshold.dto';
 import type { AuthenticatedUser } from '../../application/interfaces/jwt-payload.interface';
 import { CurrentUser } from '../../api/decorators/current-user.decorator';
 import { Roles } from '../../api/decorators/roles.decorator';
@@ -32,6 +35,8 @@ import { InventoryService } from './inventory.service';
  *  - GET /inventory: tüm roller (FIELD_STAFF dahil). Not: branch bazlı veri
  *    kısıtlaması (kendi şubesiyle sınırlama) ileride ele alınacak.
  *  - POST /inventory/adjust: FIRM_ADMIN, BRANCH_MANAGER, WAREHOUSE_STAFF.
+ *  - PATCH /inventory/:id/threshold: FIRM_ADMIN, BRANCH_MANAGER. Eşik belirlemek
+ *    bir yönetim kararıdır; WAREHOUSE_STAFF stok düzeltir ama eşik belirlemez.
  */
 @ApiTags('inventory')
 @ApiBearerAuth('access-token')
@@ -85,5 +90,24 @@ export class InventoryController {
   @ApiResponse({ status: 404, description: 'Şube veya ürün bulunamadı.' })
   adjust(@CurrentUser() user: AuthenticatedUser, @Body() dto: AdjustInventoryDto) {
     return this.inventoryService.adjustInventory(user.userId, dto);
+  }
+
+  @Patch(':id/threshold')
+  @Roles(UserRole.FIRM_ADMIN, UserRole.BRANCH_MANAGER)
+  @ApiOperation({
+    summary: 'Düşük stok eşiğini güncelle',
+    description:
+      'Envanter kaydının `minThreshold` değerini günceller; `quantity <= minThreshold` ' +
+      'olduğunda kayıt düşük stok sayılır. Bu bir ayar değişikliğidir: stok miktarı ' +
+      'değişmez ve audit kaydı (`InventoryLog`) yazılmaz. Eşik belirlemek yönetim ' +
+      'kararı olduğundan yalnızca FIRM_ADMIN veya BRANCH_MANAGER.',
+  })
+  @ApiResponse({ status: 200, description: 'Eşik güncellendi; güncel envanter kaydı döner.' })
+  @ApiResponse({ status: 400, description: 'Doğrulama hatası (eşik tam sayı ve >= 0 olmalı).' })
+  @ApiResponse({ status: 401, description: 'Token yok, geçersiz veya kullanıcı pasif.' })
+  @ApiResponse({ status: 403, description: 'Bu işlem için gerekli yetkiye sahip değilsiniz.' })
+  @ApiResponse({ status: 404, description: 'Envanter kaydı bulunamadı.' })
+  updateThreshold(@Param('id') id: string, @Body() dto: UpdateThresholdDto) {
+    return this.inventoryService.updateThreshold(id, dto.minThreshold);
   }
 }

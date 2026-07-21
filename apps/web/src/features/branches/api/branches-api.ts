@@ -1,6 +1,6 @@
 import { apiClient } from '../../../lib/api-client';
 import type { BranchFormValues } from '../schemas';
-import type { Branch } from '../types';
+import type { Branch, SelectableBranch } from '../types';
 
 /**
  * Şube (Branch) HTTP çağrıları (§9.2). Her fonksiyon tek bir uç noktayı sarar;
@@ -11,6 +11,15 @@ import type { Branch } from '../types';
 /** `GET /branches` — aktif firmanın tüm şubeleri. */
 export async function fetchBranches(): Promise<Branch[]> {
   const { data } = await apiClient.get<Branch[]>('/branches');
+  return data;
+}
+
+/**
+ * `GET /branches/selectable` — seçim listeleri için minimal şube listesi.
+ * Tüm rollere açıktır; yönetsel detay içermez (bkz. `SelectableBranch`).
+ */
+export async function fetchSelectableBranches(): Promise<SelectableBranch[]> {
+  const { data } = await apiClient.get<SelectableBranch[]>('/branches/selectable');
   return data;
 }
 
