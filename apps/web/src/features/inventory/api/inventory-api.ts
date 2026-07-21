@@ -32,3 +32,14 @@ export async function adjustStock(payload: AdjustStockPayload): Promise<Inventor
   const { data } = await apiClient.post<InventoryItem>('/inventory/adjust', payload);
   return data;
 }
+
+/**
+ * `PATCH /inventory/:id/threshold` — düşük stok eşiğini günceller.
+ * Ayar değişikliğidir: stok miktarı değişmez, audit kaydı yazılmaz.
+ */
+export async function updateThreshold(id: string, minThreshold: number): Promise<InventoryItem> {
+  const { data } = await apiClient.patch<InventoryItem>(`/inventory/${id}/threshold`, {
+    minThreshold,
+  });
+  return data;
+}
