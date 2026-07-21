@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   Box,
+  Button,
   Chip,
   InputAdornment,
   Paper,
@@ -15,21 +16,32 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
 import type { MovementStatus } from '@stockroute/shared-types';
 import { PageHeader } from '../../components/PageHeader';
 import { EmptyState } from '../../components/EmptyState';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { DataTableSkeleton } from '../../components/DataTableSkeleton';
+import { useSnackbar } from '../../components/SnackbarProvider';
+import { useAuthStore } from '../../lib/auth-store';
+import { getApiErrorMessage } from '../../lib/api-error';
 import { useDebouncedValue } from '../../lib/useDebouncedValue';
+import { MovementActionButtons } from './MovementActionButtons';
 import { MovementDetailDialog } from './MovementDetailDialog';
+import { MovementFormDialog } from './MovementFormDialog';
 import { MovementStatusChip } from './MovementStatusChip';
 import { useMovement } from './hooks/useMovement';
+import { useMovementActions } from './hooks/useMovementActions';
+import { useMovementMutations } from './hooks/useMovementMutations';
 import { useMovements } from './hooks/useMovements';
+import { availableActions, MOVEMENT_ACTION_RULES } from './movement-actions';
 import { MOVEMENT_STATUS_LABELS, MOVEMENT_STATUS_ORDER } from './movement-status';
 import { formatMovementDate, shortMovementId } from './movement-format';
-import type { Movement } from './types';
+import type { MovementFormValues } from './schemas';
+import type { Movement, MovementAction } from './types';
 
 const ROWS_PER_PAGE = 10;
 
@@ -53,10 +65,72 @@ export function MovementsPage() {
   const [page, setPage] = useState(0);
   const search = useDebouncedValue(searchInput, 500);
 
+  const role = useAuthStore((state) => state.user?.role);
+  const userId = useAuthStore((state) => state.user?.id);
+  const { showSuccess, showError } = useSnackbar();
+
   const { data: movements, isLoading, isError } = useMovements();
 
   const [detailId, setDetailId] = useState<string | null>(null);
   const { data: detail, isLoading: detailLoading } = useMovement(detailId);
+
+  const [formOpen, setFormOpen] = useState(false);
+  const { createMutation } = useMovementMutations();
+  const { actionMutation } = useMovementActions();
+
+  // Onay bekleyen aksiyon: hangi transfer üzerinde hangi geçiş yapılacak.
+  const [pendingAction, setPendingAction] = useState<{
+    movementId: string;
+    action: MovementAction;
+  } | null>(null);
+
+  /** Bir transferde bu kullanıcıya görünecek aksiyonlar (durum + rol + sahiplik). */
+  const actionsFor = (movement: { status: MovementStatus; requestedById: string }) =>
+    availableActions({
+      status: movement.status,
+      role,
+      userId,
+      requestedById: movement.requestedById,
+    });
+
+  const handleCreate = (values: MovementFormValues) => {
+    createMutation.mutate(
+      {
+        sourceBranchId: values.sourceBranchId,
+        destinationBranchId: values.destinationBranchId,
+        // Boş not gönderilmez; backend alanı opsiyonel kabul eder.
+        note: values.note?.trim() ? values.note.trim() : undefined,
+        items: values.items,
+      },
+      {
+        onSuccess: () => {
+          showSuccess('Transfer talebi oluşturuldu.');
+          setFormOpen(false);
+        },
+        onError: (error) => showError(getApiErrorMessage(error, 'Transfer talebi oluşturulamadı.')),
+      },
+    );
+  };
+
+  const confirmAction = () => {
+    if (!pendingAction) {
+      return;
+    }
+    const { movementId, action } = pendingAction;
+    actionMutation.mutate(
+      { id: movementId, action },
+      {
+        onSuccess: () => {
+          showSuccess(MOVEMENT_ACTION_RULES[action].successMessage);
+          setPendingAction(null);
+        },
+        onError: (error) => {
+          showError(getApiErrorMessage(error, 'İşlem tamamlanamadı.'));
+          setPendingAction(null);
+        },
+      },
+    );
+  };
 
   // Durum sayaçları filtreden bağımsız, tüm liste üzerinden hesaplanır.
   const statusCounts = useMemo(() => {
@@ -101,7 +175,16 @@ export function MovementsPage() {
 
   return (
     <Box>
-      <PageHeader title="Transferler" description="Şubeler arası stok transferlerini yönetin" />
+      <PageHeader
+        title="Transferler"
+        description="Şubeler arası stok transferlerini yönetin"
+        action={
+          // Transfer talebi tüm rollere açıktır (movements.controller.ts — POST /movements).
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setFormOpen(true)}>
+            Yeni Transfer
+          </Button>
+        }
+      />
 
       <Stack
         direction={{ xs: 'column', md: 'row' }}
@@ -181,10 +264,11 @@ export function MovementsPage() {
                   <TableCell align="right">İÇERİK</TableCell>
                   <TableCell>DURUM</TableCell>
                   <TableCell>TARİH</TableCell>
+                  <TableCell align="right">AKSİYON</TableCell>
                 </TableRow>
               </TableHead>
               {isLoading ? (
-                <DataTableSkeleton columns={5} />
+                <DataTableSkeleton columns={6} />
               ) : (
                 <TableBody>
                   {pagedMovements.map((movement) => (
@@ -211,6 +295,22 @@ export function MovementsPage() {
                         <MovementStatusChip status={movement.status} />
                       </TableCell>
                       <TableCell>{formatMovementDate(movement.createdAt)}</TableCell>
+                      <TableCell align="right">
+                        {/* Terminal durumlarda ve yetkisiz rollerde tire gösterilir (mockup). */}
+                        {actionsFor(movement).length > 0 ? (
+                          <MovementActionButtons
+                            actions={actionsFor(movement)}
+                            disabled={actionMutation.isPending}
+                            onAction={(action) =>
+                              setPendingAction({ movementId: movement.id, action })
+                            }
+                          />
+                        ) : (
+                          <Typography component="span" color="text.secondary">
+                            —
+                          </Typography>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -249,7 +349,38 @@ export function MovementsPage() {
         open={detailId !== null}
         movement={detail}
         loading={detailLoading}
+        actions={
+          detail ? (
+            <MovementActionButtons
+              actions={actionsFor(detail)}
+              size="medium"
+              disabled={actionMutation.isPending}
+              onAction={(action) => setPendingAction({ movementId: detail.id, action })}
+            />
+          ) : null
+        }
         onClose={() => setDetailId(null)}
+      />
+
+      <MovementFormDialog
+        open={formOpen}
+        submitting={createMutation.isPending}
+        onSubmit={handleCreate}
+        onClose={() => setFormOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={pendingAction !== null}
+        title={pendingAction ? MOVEMENT_ACTION_RULES[pendingAction.action].label : ''}
+        message={pendingAction ? MOVEMENT_ACTION_RULES[pendingAction.action].confirmMessage : ''}
+        confirmLabel={pendingAction ? MOVEMENT_ACTION_RULES[pendingAction.action].label : ''}
+        // Stok düşüren/ekleyen ve reddeden aksiyonlar dışında birincil renk.
+        confirmColor={
+          pendingAction && ['reject', 'cancel'].includes(pendingAction.action) ? 'error' : 'primary'
+        }
+        loading={actionMutation.isPending}
+        onConfirm={confirmAction}
+        onCancel={() => setPendingAction(null)}
       />
     </Box>
   );
