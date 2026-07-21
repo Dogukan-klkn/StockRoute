@@ -2,7 +2,6 @@ import { useEffect, useMemo } from 'react';
 import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
-  Alert,
   Autocomplete,
   Box,
   Button,
@@ -22,7 +21,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
-import { useBranches } from '../branches/hooks/useBranches';
+import { useSelectableBranches } from '../branches/hooks/useSelectableBranches';
 import { useInventory } from '../inventory/hooks/useInventory';
 import { useProducts } from '../products/hooks/useProducts';
 import { PRODUCT_UNIT_LABELS } from '../products/schemas';
@@ -76,10 +75,10 @@ export function MovementFormDialog({
     }
   }, [open, reset]);
 
-  // Şube listesi yalnızca FIRM_ADMIN ve BRANCH_MANAGER'a açıktır (§9.2). Diğer
-  // roller `POST /movements` çağırabilse de şube seçemez; bu durumda form yerine
-  // açıklayıcı bir uyarı gösterilir (bkz. Gün 16 bulgusu).
-  const { data: branches, isError: branchesUnavailable } = useBranches();
+  // Transfer talebi tüm rollere açıktır; şube seçicileri bu yüzden yönetsel
+  // `GET /branches` yerine tüm rollere açık `GET /branches/selectable` ucundan
+  // beslenir (bkz. useSelectableBranches).
+  const { data: branches } = useSelectableBranches();
   const { data: products } = useProducts('', '');
 
   // Kaynak şube seçilince o şubenin stok seviyeleri ürün seçicide gösterilir.
@@ -123,219 +122,201 @@ export function MovementFormDialog({
         </IconButton>
       </DialogTitle>
 
-      {branchesUnavailable ? (
-        <>
-          <DialogContent dividers>
-            <Alert severity="warning">
-              Şube listesine erişim yetkiniz olmadığı için transfer talebi oluşturamıyorsunuz.
-              Lütfen yöneticinizle görüşün.
-            </Alert>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, py: 2 }}>
-            <Button onClick={onClose} color="inherit">
-              Kapat
-            </Button>
-          </DialogActions>
-        </>
-      ) : (
-        <form onSubmit={handleSubmit(onSubmit)} noValidate>
-          <DialogContent dividers>
-            <Stack spacing={2.5}>
-              <Controller
-                name="sourceBranchId"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    select
-                    label="Kaynak Şube"
-                    required
-                    fullWidth
-                    error={Boolean(errors.sourceBranchId)}
-                    helperText={errors.sourceBranchId?.message}
-                  >
-                    {branches?.length ? (
-                      branches.map((branch) => (
-                        <MenuItem key={branch.id} value={branch.id}>
-                          {branch.name}
-                        </MenuItem>
-                      ))
-                    ) : (
-                      <MenuItem value="" disabled>
-                        Şube bulunamadı
-                      </MenuItem>
-                    )}
-                  </TextField>
-                )}
-              />
-
-              <Controller
-                name="destinationBranchId"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    select
-                    label="Hedef Şube"
-                    required
-                    fullWidth
-                    error={Boolean(errors.destinationBranchId)}
-                    helperText={errors.destinationBranchId?.message}
-                  >
-                    {branches?.length ? (
-                      branches.map((branch) => (
-                        <MenuItem key={branch.id} value={branch.id}>
-                          {branch.name}
-                        </MenuItem>
-                      ))
-                    ) : (
-                      <MenuItem value="" disabled>
-                        Şube bulunamadı
-                      </MenuItem>
-                    )}
-                  </TextField>
-                )}
-              />
-
-              <Divider />
-
-              <Box>
-                <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
-                  Ürünler
-                </Typography>
-
-                <Stack spacing={2}>
-                  {fields.map((fieldItem, index) => (
-                    <Stack
-                      key={fieldItem.id}
-                      direction="row"
-                      spacing={1}
-                      sx={{ alignItems: 'flex-start' }}
-                    >
-                      <Controller
-                        name={`items.${index}.productId`}
-                        control={control}
-                        render={({ field }) => (
-                          <Autocomplete
-                            sx={{ flexGrow: 1 }}
-                            options={productOptions}
-                            getOptionLabel={(option) => option.name}
-                            value={productOptions.find((p) => p.id === field.value) ?? null}
-                            onChange={(_event, option) => field.onChange(option?.id ?? '')}
-                            isOptionEqualToValue={(option, value) => option.id === value.id}
-                            noOptionsText="Ürün bulunamadı"
-                            renderOption={(props, option) => {
-                              const meta = optionMeta(option.id, option.unit);
-                              return (
-                                <Box
-                                  component="li"
-                                  {...props}
-                                  key={option.id}
-                                  sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}
-                                >
-                                  <span>{option.name}</span>
-                                  <Typography variant="caption" color="text.secondary">
-                                    {option.sku}
-                                    {meta ? ` · ${meta}` : ''}
-                                  </Typography>
-                                </Box>
-                              );
-                            }}
-                            renderInput={(params) => (
-                              <TextField
-                                {...params}
-                                label={`Ürün ${index + 1}`}
-                                required
-                                error={Boolean(errors.items?.[index]?.productId)}
-                                helperText={errors.items?.[index]?.productId?.message}
-                              />
-                            )}
-                          />
-                        )}
-                      />
-
-                      <Controller
-                        name={`items.${index}.quantity`}
-                        control={control}
-                        render={({ field }) => (
-                          <TextField
-                            {...field}
-                            type="number"
-                            label="Miktar"
-                            required
-                            sx={{ width: 120, flexShrink: 0 }}
-                            error={Boolean(errors.items?.[index]?.quantity)}
-                            helperText={errors.items?.[index]?.quantity?.message}
-                          />
-                        )}
-                      />
-
-                      {/* Son kalem silinemez: en az bir kalem zorunlu (backend ArrayMinSize). */}
-                      <Tooltip
-                        title={fields.length === 1 ? 'En az bir ürün gerekli' : 'Satırı sil'}
-                      >
-                        <span>
-                          <IconButton
-                            onClick={() => remove(index)}
-                            disabled={fields.length === 1}
-                            sx={{ mt: 1 }}
-                            aria-label={`${index + 1}. ürün satırını sil`}
-                          >
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </Stack>
-                  ))}
-                </Stack>
-
-                {/* Dizi düzeyi hatalar (en az bir kalem / aynı ürün tekrarı). */}
-                {errors.items?.message ? (
-                  <FormHelperText error sx={{ mt: 1 }}>
-                    {errors.items.message}
-                  </FormHelperText>
-                ) : null}
-
-                <Button
-                  startIcon={<AddIcon />}
-                  onClick={() => append({ productId: '', quantity: 1 })}
-                  sx={{ mt: 1.5 }}
+      <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        <DialogContent dividers>
+          <Stack spacing={2.5}>
+            <Controller
+              name="sourceBranchId"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  select
+                  label="Kaynak Şube"
+                  required
+                  fullWidth
+                  error={Boolean(errors.sourceBranchId)}
+                  helperText={errors.sourceBranchId?.message}
                 >
-                  Ürün Ekle
-                </Button>
-              </Box>
+                  {branches?.length ? (
+                    branches.map((branch) => (
+                      <MenuItem key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </MenuItem>
+                    ))
+                  ) : (
+                    <MenuItem value="" disabled>
+                      Şube bulunamadı
+                    </MenuItem>
+                  )}
+                </TextField>
+              )}
+            />
 
-              <Divider />
+            <Controller
+              name="destinationBranchId"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  select
+                  label="Hedef Şube"
+                  required
+                  fullWidth
+                  error={Boolean(errors.destinationBranchId)}
+                  helperText={errors.destinationBranchId?.message}
+                >
+                  {branches?.length ? (
+                    branches.map((branch) => (
+                      <MenuItem key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </MenuItem>
+                    ))
+                  ) : (
+                    <MenuItem value="" disabled>
+                      Şube bulunamadı
+                    </MenuItem>
+                  )}
+                </TextField>
+              )}
+            />
 
-              <Controller
-                name="note"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Not"
-                    placeholder="Opsiyonel not..."
-                    fullWidth
-                    multiline
-                    minRows={2}
-                    error={Boolean(errors.note)}
-                    helperText={errors.note?.message}
-                  />
-                )}
-              />
-            </Stack>
-          </DialogContent>
+            <Divider />
 
-          <DialogActions sx={{ px: 3, py: 2 }}>
-            <Button onClick={onClose} color="inherit" disabled={submitting}>
-              İptal
-            </Button>
-            <Button type="submit" variant="contained" disabled={submitting}>
-              Talep Oluştur
-            </Button>
-          </DialogActions>
-        </form>
-      )}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
+                Ürünler
+              </Typography>
+
+              <Stack spacing={2}>
+                {fields.map((fieldItem, index) => (
+                  <Stack
+                    key={fieldItem.id}
+                    direction="row"
+                    spacing={1}
+                    sx={{ alignItems: 'flex-start' }}
+                  >
+                    <Controller
+                      name={`items.${index}.productId`}
+                      control={control}
+                      render={({ field }) => (
+                        <Autocomplete
+                          sx={{ flexGrow: 1 }}
+                          options={productOptions}
+                          getOptionLabel={(option) => option.name}
+                          value={productOptions.find((p) => p.id === field.value) ?? null}
+                          onChange={(_event, option) => field.onChange(option?.id ?? '')}
+                          isOptionEqualToValue={(option, value) => option.id === value.id}
+                          noOptionsText="Ürün bulunamadı"
+                          renderOption={(props, option) => {
+                            const meta = optionMeta(option.id, option.unit);
+                            return (
+                              <Box
+                                component="li"
+                                {...props}
+                                key={option.id}
+                                sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}
+                              >
+                                <span>{option.name}</span>
+                                <Typography variant="caption" color="text.secondary">
+                                  {option.sku}
+                                  {meta ? ` · ${meta}` : ''}
+                                </Typography>
+                              </Box>
+                            );
+                          }}
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              label={`Ürün ${index + 1}`}
+                              required
+                              error={Boolean(errors.items?.[index]?.productId)}
+                              helperText={errors.items?.[index]?.productId?.message}
+                            />
+                          )}
+                        />
+                      )}
+                    />
+
+                    <Controller
+                      name={`items.${index}.quantity`}
+                      control={control}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          type="number"
+                          label="Miktar"
+                          required
+                          sx={{ width: 120, flexShrink: 0 }}
+                          error={Boolean(errors.items?.[index]?.quantity)}
+                          helperText={errors.items?.[index]?.quantity?.message}
+                        />
+                      )}
+                    />
+
+                    {/* Son kalem silinemez: en az bir kalem zorunlu (backend ArrayMinSize). */}
+                    <Tooltip title={fields.length === 1 ? 'En az bir ürün gerekli' : 'Satırı sil'}>
+                      <span>
+                        <IconButton
+                          onClick={() => remove(index)}
+                          disabled={fields.length === 1}
+                          sx={{ mt: 1 }}
+                          aria-label={`${index + 1}. ürün satırını sil`}
+                        >
+                          <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  </Stack>
+                ))}
+              </Stack>
+
+              {/* Dizi düzeyi hatalar (en az bir kalem / aynı ürün tekrarı). */}
+              {errors.items?.message ? (
+                <FormHelperText error sx={{ mt: 1 }}>
+                  {errors.items.message}
+                </FormHelperText>
+              ) : null}
+
+              <Button
+                startIcon={<AddIcon />}
+                onClick={() => append({ productId: '', quantity: 1 })}
+                sx={{ mt: 1.5 }}
+              >
+                Ürün Ekle
+              </Button>
+            </Box>
+
+            <Divider />
+
+            <Controller
+              name="note"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="Not"
+                  placeholder="Opsiyonel not..."
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  error={Boolean(errors.note)}
+                  helperText={errors.note?.message}
+                />
+              )}
+            />
+          </Stack>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={onClose} color="inherit" disabled={submitting}>
+            İptal
+          </Button>
+          <Button type="submit" variant="contained" disabled={submitting}>
+            Talep Oluştur
+          </Button>
+        </DialogActions>
+      </form>
     </Dialog>
   );
 }
