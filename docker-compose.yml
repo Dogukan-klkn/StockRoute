@@ -1,3 +1,11 @@
+# StockRoute — tüm sistemi tek komutla ayağa kaldırır (plan §13.1):
+#   docker compose up --build
+#
+# Servisler: db (PostgreSQL) → api (NestJS) → web (nginx + React SPA).
+# Tarayıcı yalnızca web ile konuşur (http://localhost:5173); `/api` ve
+# `/socket.io` istekleri nginx tarafından api'ye iletilir (bkz. apps/web/nginx.conf).
+# Bu tek-origin modeli sayesinde CORS yapılandırmasına gerek kalmaz.
+
 services:
   db:
     image: postgres:16-alpine
@@ -6,9 +14,64 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: stockroute
     ports:
+      # Host'ta 5433: yerelde çalışan bir PostgreSQL varsa 5432 ile çakışmasın.
+      # Konteynerler arası bağlantı bu eşlemeden bağımsızdır (db:5432).
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # api, göçleri uygulamadan önce veritabanının GERÇEKTEN sorgu kabul
+      # ettiğinden emin olmalıdır. Konteynerin "başlamış" olması yetmez:
+      # PostgreSQL ilk açılışta veri dizinini hazırlarken bağlantı reddeder.
+      test: ['CMD-SHELL', 'pg_isready -U stockroute -d stockroute']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  api:
+    build:
+      # Bağlam monorepo köküdür: api, workspace paketlerine ve kökteki
+      # lockfile'a ihtiyaç duyar.
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      # Host adı `db`, compose ağındaki servis adıdır (host'taki 5433 değil).
+      DATABASE_URL: postgresql://stockroute:password@db:5432/stockroute
+      JWT_SECRET: docker-demo-secret-change-in-production
+      JWT_EXPIRES_IN: 1d
+      API_PORT: 3000
+      # Tek origin modelinde tarayıcı isteği web üzerinden geldiği için CORS
+      # devreye girmez; yine de doğrudan erişimde (örn. /docs) tutarlı olsun.
+      CORS_ORIGIN: http://localhost:5173
+    depends_on:
+      db:
+        # Sağlık kontrolü geçene kadar api başlatılmaz; aksi halde
+        # `prisma migrate deploy` bağlantı hatasıyla düşerdi.
+        condition: service_healthy
+    ports:
+      # API'ye doğrudan erişim (Scalar dokümanı: http://localhost:3000/docs).
+      # Web bu porta ihtiyaç duymaz; kendi ağı üzerinden api:3000'e gider.
+      - '3000:3000'
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Vite değişkenleri DERLEME ZAMANINDA gömülür. Ters vekil modeli
+        # gereği ikisi de görelidir: istekler sayfanın kendi origin'ine gider,
+        # nginx api'ye iletir. Mutlak adres verilseydi imaj tek bir host adına
+        # bağlanırdı.
+        VITE_API_URL: /api
+        VITE_SOCKET_URL: ''
+    depends_on:
+      - api
+    ports:
+      # Uygulamanın giriş noktası: http://localhost:5173
+      - '5173:80'
+    restart: unless-stopped
 
 volumes:
   pgdata:

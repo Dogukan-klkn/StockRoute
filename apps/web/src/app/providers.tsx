@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 import { theme } from '../theme';
 import { SnackbarProvider } from '../components/SnackbarProvider';
+import { SocketProvider } from '../providers/SocketProvider';
 
 /**
  * Yetki hataları tekrar denenmez: 401/403 geçici bir aksaklık değil kalıcı bir
@@ -34,7 +35,11 @@ export function AppProviders({ children }: { children: ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <SnackbarProvider>{children}</SnackbarProvider>
+        <SnackbarProvider>
+          {/* Socket, SnackbarProvider'ın ALTINDA: real-time katmanı gelen
+              `notification` olaylarını bildirim olarak gösterecek (Aşama 2). */}
+          <SocketProvider>{children}</SocketProvider>
+        </SnackbarProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

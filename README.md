@@ -76,7 +76,7 @@ Tüm yığın **TypeScript** ailesindendir; tek dil sayesinde backend, web ve mo
 | Katman | Teknoloji |
 |---|---|
 | Monorepo yönetimi | pnpm workspaces + Turborepo |
-| Konteynerizasyon | Docker + Docker Compose |
+| Konteynerizasyon | Docker + Docker Compose (web imajı: nginx, ters vekil) |
 | Backend | NestJS (Node.js + TypeScript, Clean Architecture) |
 | ORM / Veritabanı | Prisma ORM + PostgreSQL |
 | Kimlik & Yetki | Passport.js + JWT + NestJS Guards |
@@ -180,7 +180,11 @@ Başlıca değişkenler:
 
 ```env
 # --- API (apps/api) ---
-DATABASE_URL=postgresql://stockroute:password@localhost:5432/stockroute
+# Not: Compose, PostgreSQL'i host'ta 5433'e eşler (yerelde kurulu bir
+# PostgreSQL varsa 5432 ile çakışmasın diye). Geliştirme modunda API host'tan
+# bağlandığı için port 5433'tür; container içinde bu eşleme geçerli değildir
+# ve adres `db:5432` olur (bkz. docker-compose.yml).
+DATABASE_URL=postgresql://stockroute:password@localhost:5433/stockroute
 JWT_SECRET=change-me-in-production
 JWT_EXPIRES_IN=1d
 API_PORT=3000
@@ -199,23 +203,64 @@ EXPO_PUBLIC_SOCKET_URL=http://localhost:3000
 
 ### 3a. Docker ile tümünü çalıştırın (demo)
 
+Tek komut yeterlidir; veritabanı, API ve web panel birlikte ayağa kalkar:
+
 ```bash
 docker compose up --build
 ```
+
+Konteyner ilk açılışta göçleri uygular **ve demo verisini yükler** — ayrıca bir
+adım gerekmez. (Seed `upsert` kullandığı için yeniden başlatmalarda güvenlidir.)
 
 | Servis | Adres |
 |---|---|
 | Web Panel | http://localhost:5173 |
 | API | http://localhost:3000 |
 | API Dokümantasyonu (Scalar) | http://localhost:3000/docs |
-| PostgreSQL | localhost:5432 |
+| PostgreSQL | localhost:5433 |
+
+**Demo giriş bilgileri** (seed ile oluşturulur):
+
+| Alan | Değer |
+|---|---|
+| Firma kodu | `acme-lojistik` (ikinci firma: `globex-tedarik`) |
+| E-posta | `admin@demo.test` |
+| Parola | `DemoParola123` |
+
+> İki firma, çok kiracılı izolasyonu göstermek için oluşturulur: aynı e-posta
+> her iki firmada da geçerlidir, giriş yapılan firmayı **firma kodu** belirler.
+
+Durdurmak için `docker compose down`; veritabanını da sıfırlamak için
+`docker compose down -v`.
+
+<details>
+<summary>Docker mimarisi — tek origin (ters vekil)</summary>
+
+Tarayıcı yalnızca web servisiyle konuşur (`:5173`). nginx, statik SPA'yı
+servis eder ve `/api` ile `/socket.io` isteklerini api konteynerine iletir.
+Bu sayede CORS yapılandırmasına gerek kalmaz ve gerçek zamanlı WebSocket
+bağlantısı da aynı origin üzerinden yükseltilir.
+
+```
+tarayıcı ──▶ web (nginx :5173) ──┬─▶ /            statik SPA
+                                 ├─▶ /api/*       api:3000
+                                 └─▶ /socket.io/* api:3000 (WebSocket upgrade)
+                                            │
+                                            └─▶ db:5432 (PostgreSQL)
+```
+
+Vite ortam değişkenleri derleme zamanında gömüldüğü için `VITE_API_URL` ve
+`VITE_SOCKET_URL` **göreli** verilir (bkz. `docker-compose.yml` → `build.args`);
+böylece imaj tek bir host adına bağlanmaz.
+
+</details>
 
 ### 3b. Geliştirme modu (önerilen)
 
 Geliştirmede sadece veritabanı container'da çalışır; api ve web local'de hot-reload ile geliştirilir:
 
 ```bash
-# 1. Veritabanını ayağa kaldır
+# 1. Veritabanını ayağa kaldır (yalnızca db servisi)
 docker compose up db -d
 
 # 2. Migration + seed
@@ -225,6 +270,14 @@ pnpm --filter api prisma db seed
 # 3. API + Web'i başlat (Turborepo)
 pnpm dev
 ```
+
+Bu modda web `:5173`'te Vite dev sunucusuyla çalışır ve API'ye **doğrudan**
+`http://localhost:3000` üzerinden gider (ters vekil yoktur) — bu yüzden
+`apps/web/.env` dosyasındaki `VITE_API_URL` / `VITE_SOCKET_URL` mutlak adres
+olarak kalmalıdır. Göreli değerler yalnızca Docker imajı için kullanılır.
+
+> `DATABASE_URL` içindeki portun **5433** olduğundan emin olun: compose db'yi
+> host'ta bu porta eşler.
 
 ### 4. Mobil uygulama (Expo)
 

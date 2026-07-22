@@ -6,8 +6,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { MovementStatus, Prisma, TransactionType, UserRole } from '@prisma/client';
-import type { InventoryUpdatedPayload } from '@stockroute/shared-types';
+import type { InventoryUpdatedPayload, NotificationPayload } from '@stockroute/shared-types';
 import { InventoryGateway } from '../../api/gateways/inventory.gateway';
+import { crossedBelowThreshold } from '../inventory/low-stock.util';
 import type { CreateMovementDto } from '../../application/dto/movements/create-movement.dto';
 import type { GetMovementsFilterDto } from '../../application/dto/movements/get-movements-filter.dto';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -299,6 +300,9 @@ export class MovementsService {
     // Kalem başına yeni stok miktarları transaction içinde toplanır; olaylar
     // commit'ten SONRA yayınlanır (rollback'te yanlış olay gitmesin).
     const inventoryUpdates: InventoryUpdatedPayload[] = [];
+    // Sevk kaynak şubeden stok düşürür; eşiği YENİ geçen kalemler için düşük
+    // stok uyarısı yayınlanır (bkz. low-stock.util.ts).
+    const lowStockWarnings: NotificationPayload[] = [];
 
     const updated = await this.prisma.client.$transaction(async (tx) => {
       const movement = await tx.stockMovement.findUnique({
@@ -331,6 +335,8 @@ export class MovementsService {
               productId: item.productId,
             },
           },
+          // Ürün ve şube adı düşük stok bildiriminin mesajında kullanılır.
+          include: { product: true, branch: true },
         });
 
         if (!inventory) {
@@ -368,6 +374,15 @@ export class MovementsService {
           productId: item.productId,
           quantity: newQuantity,
         });
+
+        if (crossedBelowThreshold(previousQuantity, newQuantity, inventory.minThreshold)) {
+          lowStockWarnings.push({
+            type: 'LOW_STOCK',
+            title: 'Düşük Stok Uyarısı',
+            message: `${inventory.product.name} (${inventory.branch.name}): ${newQuantity} adet kaldı`,
+            level: 'warning',
+          });
+        }
       }
 
       return shipped;
@@ -381,6 +396,9 @@ export class MovementsService {
       });
       for (const payload of inventoryUpdates) {
         this.gateway.emitInventoryUpdated(tenantId, payload);
+      }
+      for (const warning of lowStockWarnings) {
+        this.gateway.emitNotification(tenantId, warning);
       }
     });
 
