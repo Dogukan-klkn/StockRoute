@@ -4,6 +4,7 @@ import { InventoryGateway } from '../../api/gateways/inventory.gateway';
 import type { AdjustInventoryDto } from '../../application/dto/inventory/adjust-inventory.dto';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { TenantContextService } from '../../infrastructure/tenant/tenant-context.service';
+import { crossedBelowThreshold } from './low-stock.util';
 
 /**
  * `findAll` için opsiyonel liste filtreleri.
@@ -112,6 +113,10 @@ export class InventoryService {
    * @param dto    Düzeltme isteği (`branchId`, `productId`, `quantity`, `reason`).
    */
   async adjustInventory(userId: string, dto: AdjustInventoryDto): Promise<InventoryWithRelations> {
+    // Düşük stok bildirimi transaction'dan SONRA yayınlanır; eşiğin yeni geçilip
+    // geçilmediğine karar vermek için düzeltme öncesi miktar dışarı taşınır.
+    let previousQuantityForNotification = 0;
+
     const [branch, product] = await Promise.all([
       this.prisma.client.branch.findFirst({ where: { id: dto.branchId } }),
       this.prisma.client.product.findFirst({ where: { id: dto.productId } }),
@@ -144,6 +149,7 @@ export class InventoryService {
 
       const previousQuantity = current.quantity;
       const newQuantity = previousQuantity + dto.quantity;
+      previousQuantityForNotification = previousQuantity;
 
       if (newQuantity < 0) {
         throw new BadRequestException(
@@ -186,6 +192,21 @@ export class InventoryService {
           productId: dto.productId,
           quantity: adjusted.quantity,
         });
+        // Stok eşiğin altına YENİ düştüyse ayrıca uyarı bildirimi yayınlanır.
+        if (
+          crossedBelowThreshold(
+            previousQuantityForNotification,
+            adjusted.quantity,
+            adjusted.minThreshold,
+          )
+        ) {
+          this.gateway.emitNotification(tenantId, {
+            type: 'LOW_STOCK',
+            title: 'Düşük Stok Uyarısı',
+            message: `${adjusted.product.name} (${adjusted.branch.name}): ${adjusted.quantity} adet kaldı`,
+            level: 'warning',
+          });
+        }
       } else {
         this.logger.warn('Tenant bağlamı yok; inventory:updated yayınlanmadı.');
       }
