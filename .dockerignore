@@ -1,5 +1,45 @@
+# Docker build context'ini küçültür: buradaki yollar imaja HİÇ kopyalanmaz.
+# Bağımlılıklar ve derleme çıktıları imaj içinde yeniden üretilir; host'tan
+# taşınırlarsa platform uyumsuzluğu (Windows ikilileri Alpine'de çalışmaz) ve
+# gereksiz imaj boyutu oluşur.
+
+# Bağımlılıklar — kökte VE her workspace paketinde.
 node_modules
+**/node_modules
+
+# Derleme çıktıları — imajda yeniden üretilir.
 dist
-.env
+**/dist
+build
+**/build
 .turbo
-*.log
+**/.turbo
+
+# Gizli bilgiler: env'ler compose üzerinden verilir, imaja gömülmez.
+# `.env.example` şablonları zararsızdır, dışarıda tutulmaz.
+.env
+**/.env
+.env.*
+!**/.env.example
+
+# Mobil uygulama container'a girmiyor (Expo; ayrı dağıtım kanalı).
+apps/mobile
+
+# Sürüm kontrolü, dokümantasyon ve yerel araç çıktıları.
+.git
+.gitignore
+docs
+**/.expo
+**/*.log
+**/coverage
+**/.vscode
+**/.idea
+
+# Docker'ın kendi dosyaları (imajın içinde işleri yok).
+Dockerfile
+**/Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Playwright e2e script'leri — imajda çalıştırılmıyor.
+scripts/e2e
