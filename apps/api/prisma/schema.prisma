@@ -1,5 +1,11 @@
 generator client {
   provider = "prisma-client-js"
+  // `native` yerel geliştirmeyi (Windows/macOS/glibc Linux) korur;
+  // `linux-musl-openssl-3.0.x` Alpine tabanlı container içindir — Prisma query
+  // engine'i hedef platforma göre farklı ikili dosya kullandığından, imajda
+  // doğru motorun bulunması için derleme zamanında açıkça istenmelidir.
+  // Bu bir generator ayarıdır; veritabanı şemasını değiştirmez (migration gerekmez).
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
