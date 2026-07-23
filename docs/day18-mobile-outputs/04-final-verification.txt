@@ -1,0 +1,37 @@
+===== FINAL DOĞRULAMA =====
+--- mobile typecheck ---
+✅ PASS
+--- mobile lint ---
+✅ PASS
+--- web build (regresyon) ---
+✅ PASS
+--- api test (regresyon) ---
+FAIL src/modules/inventory/inventory.service.spec.ts
+  ● Test suite failed to run
+FAIL src/modules/movements/movements.service.spec.ts
+  ● Test suite failed to run
+Test Suites: 2 failed, 1 passed, 3 total
+Tests:       10 passed, 10 total
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @stockroute/api@0.0.0 test: `jest`
+--- mobile export ---
+Android Bundled 5530ms node_modules\.pnpm\expo-router@4.0.22_eej45ftqbc7pslskbrzqlllzla\node_modules\expo-router\entry.js (1061 modules)
+..\..\node_modules\.pnpm\expo-router@4.0.22_eej45ftqbc7pslskbrzqlllzla\node_modules\expo-router\assets\error.png (469 B)
+Exported: dist
+--- api test (prisma generate sonrası) ---
+✅ PASS — 58/58 tests, 3/3 suites
+
+NOT: Temiz install (node_modules purge) sonrası 'prisma generate' gerekti
+(postinstall her zaman tetiklenmiyor). Bu bir kod regresyonu değil, kurulum adımı.
+
+===== ÖZET =====
+mobile typecheck: ✅ | mobile lint: ✅ | mobile export: ✅ (1061 modül)
+web build: ✅ | api test: ✅ (58/58)
+
+REGRESYON KÖK NEDEN & ÇÖZÜM:
+- Mobile'a eklenen bağımlılıklar pnpm'in .pnpm/node_modules fallback zod'unu
+  zod@4'ten zod@3'e kaydırdı (API'nin Scalar paketleri zod@3 çekiyor).
+- @hookform/resolvers@5.4.0 (web) zod'u undeclared-peer olarak require ediyor,
+  fallback'e düşünce zod@3'te 'zod/v4/core' bulunamıyor → web build kırılıyordu.
+- ÇÖZÜM: root package.json'a pnpm.packageExtensions ile resolvers'a zod peer'ı
+  beyan ettirildi → pnpm her importer'ın zod'unu (web→v4, mobile→v3) inject eder.
+  Fallback nondeterminizmine bağlı kalmayan, doğru pnpm çözümü.

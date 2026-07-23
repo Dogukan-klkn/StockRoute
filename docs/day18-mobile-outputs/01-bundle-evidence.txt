@@ -1,0 +1,21 @@
+=== Aşama 1 — expo export --platform android bundle kanıtı ===
+Tarih: Thu Jul 23 09:46:32 TSS 2026
+Bundle: dist/_expo/static/js/android/entry-7dcbdf2beb170ee6b7a7c57a12721169.hbc (2.4M)
+
+--- shared-types (UserRole enum değerleri bundle'da) ---
+  SUPER_ADMIN : 1 hit
+  FIRM_ADMIN : 1 hit
+  BRANCH_MANAGER : 1 hit
+  WAREHOUSE_STAFF : 1 hit
+  FIELD_STAFF : 1 hit
+
+--- ui-tokens (renk token'ları bundle'da) ---
+  #2563EB : 1 hit
+  #6366F1 : 1 hit
+  #16A34A : 1 hit
+  #DC2626 : 1 hit
+  #F8FAFC : 1 hit
+  #E2E8F0 : 1 hit
+
+SONUÇ: shared-types (CJS dist) VE ui-tokens (kaynak-TS, workspace kökü)
+Metro tarafından çözülüp bundle'a alındı. Monorepo entegrasyonu doğrulandı.
