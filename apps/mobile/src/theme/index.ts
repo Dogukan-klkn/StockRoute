@@ -17,6 +17,8 @@ export const theme = {
   statusColors,
   spacing,
   radius,
+  /** Modal/overlay arka plan karartması (ui-tokens'ta karşılığı yok; mobil-özel). */
+  overlay: 'rgba(0, 0, 0, 0.4)',
   /**
    * RN font ölçeği — ui-tokens.typography.fontSize'ı sayısal olarak taşır.
    * (Web'deki string font-family MUI içindir; RN sistem fontunu kullanır,
