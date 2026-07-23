@@ -1,0 +1,23 @@
+=== API TEST ===
+
+> @stockroute/api@0.0.0 test C:\Users\Dogukan\Desktop\Truncgil_staj\apps\api
+> jest
+
+ts-jest[ts-compiler] (WARN) Got a `.js` file to compile while `allowJs` option is not set to `true` (file: C:\Users\Dogukan\Desktop\Truncgil_staj\packages\shared-types\dist\index.js). To fix this:
+  - if you want TypeScript to process JS files, set `allowJs` to `true` in your TypeScript config (usually tsconfig.json)
+  - if you do not want TypeScript to process your `.js` files, in your Jest config change the `transform` key which value is `ts-jest` so that it does not match `.js` files anymore
+ts-jest[ts-compiler] (WARN) Got a `.js` file to compile while `allowJs` option is not set to `true` (file: C:\Users\Dogukan\Desktop\Truncgil_staj\packages\shared-types\dist\enums.js). To fix this:
+  - if you want TypeScript to process JS files, set `allowJs` to `true` in your TypeScript config (usually tsconfig.json)
+  - if you do not want TypeScript to process your `.js` files, in your Jest config change the `transform` key which value is `ts-jest` so that it does not match `.js` files anymore
+ts-jest[ts-compiler] (WARN) Got a `.js` file to compile while `allowJs` option is not set to `true` (file: C:\Users\Dogukan\Desktop\Truncgil_staj\packages\shared-types\dist\socket-events.js). To fix this:
+  - if you want TypeScript to process JS files, set `allowJs` to `true` in your TypeScript config (usually tsconfig.json)
+  - if you do not want TypeScript to process your `.js` files, in your Jest config change the `transform` key which value is `ts-jest` so that it does not match `.js` files anymore
+PASS src/api/gateways/inventory.gateway.spec.ts (10.024 s)
+PASS src/modules/inventory/inventory.service.spec.ts (10.715 s)
+PASS src/modules/movements/movements.service.spec.ts (10.928 s)
+
+Test Suites: 3 passed, 3 total
+Tests:       58 passed, 58 total
+Snapshots:   0 total
+Time:        12.286 s
+Ran all test suites.

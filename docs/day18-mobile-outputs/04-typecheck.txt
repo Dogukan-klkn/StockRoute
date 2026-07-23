@@ -1,0 +1,5 @@
+=== MOBILE TYPECHECK ===
+
+> @stockroute/mobile@0.0.0 typecheck C:\Users\Dogukan\Desktop\Truncgil_staj\apps\mobile
+> tsc --noEmit
+
