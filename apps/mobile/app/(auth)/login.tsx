@@ -12,16 +12,13 @@ import {
 } from 'react-native';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
-import { Redirect } from 'expo-router';
 import axios from 'axios';
 import { Logo } from '@/components/Logo';
 import { theme } from '@/theme';
-import { useAuthStore } from '@/lib/auth-store';
 import { loginSchema, type LoginInput } from '@/lib/schemas';
 import { useLogin } from '@/hooks/useLogin';
 
 export default function LoginScreen() {
-  const isAuthenticated = useAuthStore((state) => state.accessToken !== null);
   const login = useLogin();
 
   const emailRef = useRef<TextInput>(null);
@@ -38,12 +35,9 @@ export default function LoginScreen() {
 
   const isUnauthorized = axios.isAxiosError(login.error) && login.error.response?.status === 401;
 
+  // Başarılı login sonrası yönlendirmeyi kök layout'taki rota koruması
+  // (useProtectedRoute) yapar: token store'a yazılınca guard (tabs)'e taşır.
   const onSubmit = handleSubmit((input) => login.mutate(input));
-
-  // Oturum açıksa (veya login başarılı olduysa) sekmelere yönlendir.
-  if (isAuthenticated) {
-    return <Redirect href="/(tabs)" />;
-  }
 
   return (
     <KeyboardAvoidingView
