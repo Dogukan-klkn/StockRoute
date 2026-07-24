@@ -1,0 +1,13 @@
+
+> @stockroute/api@0.0.0 test C:\Users\Dogukan\Desktop\Truncgil_staj\apps\api
+> jest
+
+PASS src/api/gateways/inventory.gateway.spec.ts (8.547 s)
+PASS src/modules/inventory/inventory.service.spec.ts (8.641 s)
+PASS src/modules/movements/movements.service.spec.ts (8.716 s)
+
+Test Suites: 3 passed, 3 total
+Tests:       58 passed, 58 total
+Snapshots:   0 total
+Time:        9.862 s
+Ran all test suites.

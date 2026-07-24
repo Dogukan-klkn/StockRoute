@@ -14,36 +14,26 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { UserRole } from '@stockroute/shared-types';
 import { Logo } from '@/components/Logo';
 import { Avatar } from '@/components/Avatar';
 import { theme } from '@/theme';
 import { useAuthStore } from '@/lib/auth-store';
+import { isConnectionError } from '@/lib/api-client';
+import { useBranchStore } from '@/lib/branch-store';
 import { useBranches, useInventory } from '@/hooks/useInventory';
+import { useEffectiveBranch } from '@/hooks/useEffectiveBranch';
 import { useDebounce } from '@/hooks/useDebounce';
 import { isLowStock, type InventoryItem } from '@/lib/types';
-
-/**
- * Şube listesini seçebilen roller (branches.controller.ts — yönetsel rollerle
- * aynı kapsam). Diğer roller (WAREHOUSE_STAFF/FIELD_STAFF) kendi şubesiyle sınırlıdır
- * ve şube seçici yerine kendi şube adını görür (plan §12.2, web Gün 16 deseni).
- */
-const BRANCH_SELECT_ROLES: readonly UserRole[] = [
-  UserRole.SUPER_ADMIN,
-  UserRole.FIRM_ADMIN,
-  UserRole.BRANCH_MANAGER,
-];
 
 export default function StockScreen() {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
 
-  const canSelectBranch = user?.role !== undefined && BRANCH_SELECT_ROLES.includes(user.role);
-  const ownBranch = user?.branch ?? null;
-
-  // Seçici gösteren roller için seçili şube; diğerleri kendi şubesine sabitlenir.
-  const [selectedBranchId, setSelectedBranchId] = useState('');
-  const effectiveBranchId = canSelectBranch ? selectedBranchId : (ownBranch?.id ?? '');
+  // Seçili şube artık paylaşılan store'da: tarama ekranı (Gün 19) aynı şubeyi
+  // okuyor, iki ekran çelişmiyor. Rol mantığı Gün 18'den değişmedi.
+  const { canSelectBranch, ownBranch, effectiveBranchId } = useEffectiveBranch();
+  const selectedBranchId = useBranchStore((state) => state.selectedBranchId);
+  const setSelectedBranchId = useBranchStore((state) => state.setSelectedBranchId);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -238,8 +228,16 @@ function StockBody({
     );
   }
   if (query.isError) {
+    // Sunucuya ulaşılamadı ile sunucunun hata döndürmesi ayrı mesajlar.
     return (
-      <EmptyState icon="alert-circle-outline" text="Stok yüklenemedi. Aşağı çekip yenileyin." />
+      <EmptyState
+        icon="alert-circle-outline"
+        text={
+          isConnectionError(query.error)
+            ? 'Sunucuya ulaşılamadı. Bağlantınızı kontrol edip aşağı çekerek yenileyin.'
+            : 'Stok yüklenemedi. Aşağı çekip yenileyin.'
+        }
+      />
     );
   }
   // Arama sonucu boş vs stok boş — ayrı mesajlar.

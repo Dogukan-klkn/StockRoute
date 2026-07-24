@@ -20,6 +20,26 @@ export const theme = {
   /** Modal/overlay arka plan karartması (ui-tokens'ta karşılığı yok; mobil-özel). */
   overlay: 'rgba(0, 0, 0, 0.4)',
   /**
+   * Barkod tarama ekranı (mobile-tara.png) — koyu tema.
+   *
+   * `overlay` ile aynı gerekçe: bunlar web'de karşılığı olmayan, kamera
+   * görüntüsünün üzerine binen mobil-özel yüzeylerdir; ui-tokens'ın marka
+   * paletinde yer almazlar. Vurgu rengi yine token'dan gelir (colors.primary),
+   * burada yalnızca koyu zemin/karartma tonları tanımlıdır.
+   */
+  scanner: {
+    /** Kamera açılmadan önceki (izin ekranı) koyu lacivert-siyah zemin. */
+    background: '#0F1729',
+    /** Kamera üzerindeki başlık/vizör dışı karartma. */
+    dim: 'rgba(15, 23, 41, 0.6)',
+    /** Başlıktaki dairesel buton (torch) zemini. */
+    controlBackground: 'rgba(255, 255, 255, 0.15)',
+    /** Koyu zemin üzerindeki birincil metin. */
+    textPrimary: '#FFFFFF',
+    /** Koyu zemin üzerindeki ikincil/açıklama metni. */
+    textSecondary: 'rgba(255, 255, 255, 0.7)',
+  },
+  /**
    * RN font ölçeği — ui-tokens.typography.fontSize'ı sayısal olarak taşır.
    * (Web'deki string font-family MUI içindir; RN sistem fontunu kullanır,
    * özel font yüklenene dek fontFamily belirtilmez.)

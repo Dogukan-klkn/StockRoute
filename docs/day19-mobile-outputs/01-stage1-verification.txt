@@ -1,0 +1,67 @@
+===== GÜN 19 / AŞAMA 1 — DOĞRULAMA =====
+Ortam: Android emülatör Pixel_8 (API 36), Expo Go 2.32.19, SDK 52.0.49
+Metro bundle: Android Bundled (1219 modül) — Gün 18'de 1061'di (+expo-camera, +expo-haptics)
+
+--- Kurulum ---
+expo-camera  ~16.0.18   (npx expo install ile — SDK 52 uyumlu)
+expo-haptics ~14.0.1
+app.json: expo-camera plugin + cameraPermission (TR mesaj) eklendi
+Lockfile değişimi: yalnızca additive (pnpm-lock +35 satır); başka paketin
+çözümlemesi kaymadı (Gün 18 zod dersi — tam regresyon Aşama 4'te).
+
+--- İzin akışı (3 durum da GERÇEK cihaz state'i ile doğrulandı) ---
+[1] undetermined  → "Kamera izni gerekiyor" + "Kamera İznine İzin Ver"
+                    ekran: 01-scan-permission.png
+[2] denied (canAskAgain=true)
+                    → sistem diyaloğunda "Don't allow" sonrası tekrar sorulabilir
+                      durum korundu; buton yine "Kamera İznine İzin Ver"
+[3] kalıcı red (USER_FIXED)
+                    → adb pm set-permission-flags ... user-set user-fixed ile
+                      gerçek kalıcı-red state'i kuruldu
+                    → "Kamera izni reddedildi... Ayarlar'dan açın" + "Ayarlar'ı Aç"
+                    ekran: 01b-scan-permission-denied.png
+[4] granted         → CameraView açıldı
+                    ekran: 02-scan-camera.png
+
+NOT: Expo Go'nun kendi "per-experience" izin katmanı var; OS izni verilse bile
+Expo Go ayrıca "Allow StockRoute to also use it?" diye soruyor. Bu Expo Go'ya
+özgüdür, standalone build'de görülmez.
+
+--- Vizör overlay (mockup: mobile-tara.png) ---
+İlk render mockup'tan saptı (çerçeve çok geniş/uzun) → ölçüler mockup'tan
+yeniden ölçülüp düzeltildi:
+  genişlik = ekranın %63'ü, yükseklik = genişliğin %47'si (yatay dikdörtgen)
+  dikey konum = merkezin hafif üstü (%42) — altta sonuç kartına yer kalsın
+Köşe göstergeleri (mavi L, yuvarlatılmış) + yatay tarama çizgisi: mockup'a uygun.
+Tarama çizgisi Animated loop, useNativeDriver: true (JS thread bloklanmıyor).
+
+--- Fener (torch) ---
+Başlıktaki ⚡ butonu enableTorch'u toggle ediyor; buton aktif stile geçiyor
+(beyaz zemin + dolu flash ikonu).  ekran: 02b-scan-torch-on.png
+SINIR: Emülatörde fiziksel LED yok → sahne parlaklığı değişmiyor. Toggle'ın
+state/prop tarafı doğrulandı, ışığın kendisi doğrulanamadı.
+
+--- Ekran odak yönetimi (pil/gizlilik) — OS SEVİYESİNDE DOĞRULANDI ---
+Tara sekmesindeyken:
+  $ adb shell dumpsys media.camera | grep -A2 "Active Camera Clients:"
+  (Camera ID: 10, ... Client Package Name: host.exp.exponent)
+  "Device 10 is open."
+Stok sekmesine geçince:
+  Active Camera Clients:
+  []
+→ Kamera donanımı gerçekten serbest bırakılıyor (sadece görsel değil).
+Geri dönünce kamera yeniden açılıyor; fener de sıfırlanıyor (arkada yanık kalmasın).
+  ekran: 02c-scan-tab-away-camera-released.png
+
+--- Şube state refactor (Gün 18 ile paylaşım) ---
+src/lib/branch-store.ts       — ayrı zustand store (auth'u şişirmedik)
+src/hooks/useEffectiveBranch.ts — tek doğruluk kaynağı; rol mantığı Gün 18'den birebir
+app/(tabs)/index.tsx           — lokal useState yerine store'u tüketiyor
+Doğrulama: stok ekranı şubeyi doğru gösteriyor (İstanbul Merkez Depo), liste geldi.
+
+--- typecheck / lint ---
+pnpm --filter mobile run typecheck : PASS
+pnpm --filter mobile run lint      : PASS
+
+--- BU AŞAMADA YAPILMAYANLAR (Aşama 2) ---
+onBarcodeScanned handler, ürün sorgusu, sonuç kartı, haptik geri bildirim.
