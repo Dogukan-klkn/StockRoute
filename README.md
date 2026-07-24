@@ -394,12 +394,14 @@ API şeması `@nestjs/swagger` ile **OpenAPI** olarak üretilir ve **Scalar** ar
 
 | Modül | Endpoint'ler |
 |---|---|
-| **Auth** | `POST /auth/register-tenant` · `POST /auth/login` · `GET /auth/me` |
+| **Auth** | `POST /auth/register-tenant` * · `POST /auth/login` · `GET /auth/me` |
 | **Branches** | `GET/POST /branches` · `GET /branches/selectable` · `GET/PATCH/DELETE /branches/:id` |
 | **Users** | `GET/POST /users` · `GET/PATCH/DELETE /users/:id` |
 | **Products** | `GET/POST /products` · `GET /products/barcode/:barcode` · `GET/PATCH/DELETE /products/:id` |
 | **Inventory** | `GET /inventory?branchId=&lowStock=` · `POST /inventory/adjust` · `PATCH /inventory/:id/threshold` |
 | **Movements** | `GET/POST /movements` · `GET /movements/:id` · `POST /movements/:id/approve\|reject\|ship\|receive\|cancel` |
+
+\* `POST /auth/register-tenant` firma onboarding ucudur ve web panelinde karşılık gelen bir kayıt ekranı **yoktur** — bkz. [Firma kaydı (onboarding)](#firma-kaydı-onboarding).
 
 Tüm yanıtlar JSON'dur; korumalı endpoint'ler `Authorization: Bearer <token>` başlığı ister. Global `ValidationPipe` `whitelist` + `forbidNonWhitelisted` ile çalışır: tanımsız query/body alanı **400** ile reddedilir.
 
@@ -630,6 +632,12 @@ Bu bölüm, ürünün sınırlarının **nerede ve neden** çizildiğini belgele
 Gerekçe: bu kısıtın sunucuda zorlanması API, web ve mobil olmak üzere üç katmanın şube çözümleme mantığını birlikte değiştirmeyi gerektirir. Çalışan ve doğrulanmış bir sistemde bu kapsamdaki bir değişiklik, teslim penceresinde taşınabilir bir risk değildir. Kritik olan güvenlik sınırı — **firmalar arası izolasyon** — uygulanmış ve e2e testlerle kanıtlanmıştır.
 
 **`SUPER_ADMIN` rolü.** Tenant-üstü platform yöneticisi olarak ayrılmıştır; bu sürümde uygulama içi rol olarak aktif değildir. Ayrıntılı gerekçe için bkz. [RBAC bölümü](#rbac--rolyetki-matrisi).
+
+### Firma kaydı (onboarding)
+
+Firma kaydı `POST /auth/register-tenant` ucu üzerinden yapılır: tek çağrıda izole bir tenant alanı ve o firmanın ilk `FIRM_ADMIN` kullanıcısı oluşturulur. Uç herkese açıktır ve Scalar arayüzünden (`/docs`) denenebilir.
+
+Web panelinde **self-service kayıt ekranı bilinçli olarak yer almaz**; panel yalnızca giriş ekranıyla açılır. Kurumsal (B2B) bir üründe firma açılışı satış/onboarding sürecinin parçasıdır — herkesin form doldurup firma oluşturabildiği bir akış, çok kiracılı bir sistemde istenmeyen tenant üretimine yol açar. Firma oluşturulduktan sonra tüm kullanıcı yönetimi, o firmanın yöneticisi tarafından **Kullanıcılar** ekranından yürütülür.
 
 ### Kullanıcı ve şifre akışı
 
