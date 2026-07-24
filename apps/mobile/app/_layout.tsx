@@ -7,7 +7,15 @@ import { theme } from '@/theme';
 
 // Sunucu durumu için tek QueryClient (TanStack Query). Auth (client state)
 // Zustand'da tutulur.
-const queryClient = new QueryClient();
+//
+// retry: 1 — varsayılan 3'tür. api-client'ta 10 sn timeout olduğundan, 3 deneme
+// kullanıcıyı 40 sn+ spinner'da bekletirdi; timeout'un amacı da tam olarak bunu
+// engellemekti. Tek yeniden deneme geçici ağ hatalarını yine kurtarır.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { retry: 1 },
+  },
+});
 
 /**
  * Rota koruması (web'deki ProtectedRoute'un Expo Router karşılığı).
