@@ -1,0 +1,110 @@
+===== GÜN 19 / AŞAMA 2 — DOĞRULAMA =====
+Ortam: Pixel_8 emülatör, Expo Go, API+DB docker compose
+
+--- 0) TEST VERİSİ TEMİZLİĞİ (encoding) ---
+Bozukluk: "Çay 1kg" DB'de "�ay 1kg" olarak duruyordu.
+Ham baytlar: efbfbd 61 79 20 31 6b 67
+  efbfbd = U+FFFD REPLACEMENT CHARACTER — yani 'Ç' (C3 87) mangle olmamış,
+  KAYBOLMUŞ. Bu geri döndürülemez: veri kaynağında zaten yok edilmiş.
+
+KÖK NEDEN: Gün 18'de test verisi PowerShell üzerinden gönderilmiş. PowerShell
+5.1'de Set-Content/curl gövdesi sistem ANSI kod sayfasına düşer; 'Ç' bu kod
+sayfasında temsil edilemeyince U+FFFD ile değiştirilir. Kayıp gönderim
+anında olur — DB veya API kusuru değil.
+
+TEKRARLAMAMAK İÇİN: JSON gövdesi Node ile UTF-8 dosyaya yazılıp curl'e
+--data-binary "@dosya" ile verildi; gövde hiçbir noktada shell encoding'ine
+maruz kalmadı. Doğrulama: dosyanın ilk baytları ... 22c387617920316b67 22 ...
+(c387 = doğru UTF-8 'Ç').
+
+DÜZELTİLENLER (hepsi API üzerinden PATCH, DB'ye elle dokunulmadı):
+  "�ay 1kg" -> "Çay 1kg"        (ayrıca barcode eklendi)
+  "Seker 1kg"    -> "Şeker 1kg"      (Ş de sessizce ASCII'ye düşmüş)
+  "I�ecek"  -> "İçecek"         (Çay + Kahve)
+  "Gida"         -> "Gıda"           (Şeker)
+Son durum: 5 üründe de bozuk karakter yok.
+
+--- 1) TEST BARKODLARI (API üzerinden, yeni ürün minimum) ---
+Çay 1kg      8690637001239  (mevcut ürüne PATCH — qty 120, min 0)
+Şeker 1kg    8690637000089  (mevcut ürüne PATCH — qty 8, min 15 => DÜŞÜK)
+Makarna 500g 8690637005503  (yeni ürün; envanter kaydı YOK => "stok kaydı yok" dalı)
+EAN-13 kontrol hanesi doğrulandı: 869063700123 + kontrol hanesi 9 = 8690637001239
+(ilk denemede 4 yazmıştım, hesaplayınca yanlış çıktı; düzeltildi.)
+
+--- 2) BACKEND SÖZLEŞMESİ (curl ile teyit) ---
+GET /products/barcode/8690637001239 -> 200, tam Product nesnesi
+GET /products/barcode/0000000000000 -> 404 {"message":"Bu barkoda sahip bir ürün bulunamadı."}
+
+--- 3) EKRAN DALLARI (hepsi gerçekten çalıştırıldı) ---
+[Yükleniyor]      kart alanında spinner + "Ürün aranıyor…"
+[Bulundu]         Çay 1kg / SKU: CY-0012 (monospace) / "Bu şubedeki miktar 120 adet"
+                  ekran: 03-scan-result.png    -> mockup ile birebir
+[Düşük stok]      Şeker 1kg / 8 adet KIRMIZI (8 <= 15) — stok ekranındaki kırmızı 8 ile tutarlı
+                  ekran: 03b-scan-result-lowstock.png
+[Stok kaydı yok]  Makarna 500g / "Stok kaydı yok"
+                  ekran: 03c-scan-result-nostock.png
+[Bulunamadı 404]  "Ürün bulunamadı" + taranan barkod (0000000000000) gösteriliyor
+                  ekran: 04-scan-notfound.png
+[Ağ hatası]       docker compose stop api -> "Bağlantı hatası" + "Tekrar Dene" butonu
+                  ekran: 04b-scan-network-error.png
+[Tekrar Dene]     API geri açıldı -> aynı karttan başarı durumuna geçti (doğrulandı)
+
+--- 4) TEKRAR TARAMA KORUMASI (en kritik) ---
+Ölçüm yöntemi: postgres log_statement='all' açıldı, barkod parametresi
+içeren sorgular sayıldı (API request log'u tutmuyor).
+
+KESİN TEST:
+  1 kez tetiklendi -> kart açıldı -> 20 SANİYE hiçbir şeye dokunulmadı
+  Sonuç: YENİ SORGU = 1
+  Aynı anda kamera GERÇEKTEN çalışıyordu:
+    dumpsys media.camera -> (Camera ID: 10, ... host.exp.exponent), State: 2
+  20 saniyede kamera ~600 kare işledi; koruma olmasaydı her karede istek giderdi.
+  => Koruma çalışıyor: tek okuma = tek istek.
+
+NOT (dürüstlük): İlk denememde "12 basış -> 2 sorgu" çıktı ve bunu koruma
+zafiyeti sanmadım ama doğrulamadan da geçmedim. Zaman damgalarına baktım:
+iki sorgu 1.8 sn arayla, yani burst değil. Sebep test düzeneğimdi — hızlı
+adb tap'leri kart açıldıktan sonra kartın "Kapat" butonuna denk gelip
+kapatıyor, sonraki tap yeniden tetikliyordu. Yani sayı, kare-başına-istek
+değil tap çakışmasıydı. Yukarıdaki "dokunma" testi bu belirsizliği kaldırdı.
+
+--- 5) __DEV__ GUARD (production sızıntısı) ---
+Hermes (.hbc) bundle'da 'Geçerli/Bilinmeyen/8690637001239' string'leri grep ile
+görünüyordu; bu TEK BAŞINA kanıt değil (Hermes string tablosu ölü kodun
+sabitlerini de taşıyabilir). Kesin test için bytecode'suz export alındı:
+  npx expo export --platform android --no-bytecode
+  '8690637001239' -> 0 eşleşme
+  'Bilinmeyen'    -> 0 eşleşme
+=> Dev tetikleyici production bundle'dan TAMAMEN eleniyor.
+
+--- 6) DOĞRULANAMAYAN (sınır) ---
+Kameranın optik olarak gerçek bir barkodu çözmesi ve onBarcodeScanned'in
+ateşlenmesi HÂLÂ test edilemedi (emülatör arka kamerası 'virtualscene').
+Handler'dan sonraki her şey yukarıda gerçek koşullarda doğrulandı; okuma
+fiziği doğrulanmadı. "Barkod okutup test ettim" DEMİYORUM.
+
+--- 7) typecheck / lint ---
+pnpm --filter mobile run typecheck : PASS
+pnpm --filter mobile run lint      : PASS
+
+--- 8) EK DALLAR ---
+[Şube seçilmedi]  "Bu şubedeki miktar / Şube seçilmedi" + "Miktarı görmek için
+                  Stok sekmesinden bir şube seçin."
+                  ekran: 03d-scan-result-nobranch.png
+                  NOT: Bu dala uygulamayı yeniden başlatarak ulaşamadım —
+                  Expo Go JS state'i geri yüklüyor, seçili şube duruyordu.
+                  Bu yüzden branchMissing prop'u GEÇİCİ olarak true'ya sabitlenip
+                  render doğrulandı, ardından gerçek koşula geri alındı
+                  (canSelectBranch && !effectiveBranchId). Yani render kanıtlandı,
+                  koşulun kendisi kod incelemesiyle doğrulandı.
+
+[Encoding sonrası stok listesi]
+                  Tüm Türkçe karakterler doğru: Şeker/Çay/İçecek/Gıda
+                  ekran: 00-stock-encoding-fixed.png
+
+--- 9) HAPTİK ---
+Başarılı okuma -> Haptics.NotificationFeedbackType.Success
+Bulunamadı/hata -> Haptics.NotificationFeedbackType.Warning
+Sorgu başına tek titreşim (useRef ile aynı barkod için tekrar tetiklenmez).
+SINIR: Emülatörde titreşim donanımı yok; kod yolu doğrulandı, fiziksel
+titreşim doğrulanmadı.
