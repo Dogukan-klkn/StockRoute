@@ -1,0 +1,92 @@
+===== GÜN 19 — FİNAL DOĞRULAMA =====
+Tarih: 2026-07-24
+Ortam: Pixel_8 emülatör (API 36), Expo Go 2.32.19, Expo SDK 52.0.49
+
+--- EKLENEN BAĞIMLILIKLAR ---
+expo-camera  ~16.0.18
+expo-haptics ~14.0.1
+(app.json: expo-camera plugin + Türkçe cameraPermission mesajı)
+
+--- SONUÇLAR ---
+mobile typecheck   : PASS
+mobile lint        : PASS
+mobile export      : PASS (android bundle 3.43 MB, .hbc)
+web build          : PASS (regresyon yok — Gün 18 zod dersi tekrarlanmadı)
+api test           : PASS (58/58 test, 3/3 suite)
+
+GÜN 18 DERSİ KONTROLÜ: Bugün iki yeni paket eklendi. pnpm-lock değişimi
+additive kaldı, başka importer'ın çözümlemesi kaymadı; web build ve api test
+ilk denemede geçti. (Gün 18'de zod fallback'i kaymış ve web build kırılmıştı.)
+
+--- TIMEOUT DÜZELTMESİ (Aşama 4 / madde 1) ---
+SORUN: apiClient'ta timeout yoktu; API kapalıyken istek ~50 sn askıda kalıyor,
+kullanıcı boş spinner'a bakıyordu (Aşama 3'te raporlanmıştı).
+
+YAPILAN:
+  1. api-client.ts  -> timeout: 10_000 ms
+  2. _layout.tsx    -> QueryClient defaultOptions.queries.retry = 1
+     (varsayılan 3'tü; 3 deneme x 10 sn = 40 sn+ ederdi ve timeout'un amacını
+      boşa çıkarırdı. Bu ikinci adım olmadan düzeltme eksik kalırdı.)
+  3. Ekran mesajları: "sunucuya ulaşılamadı" ile "sunucu hata döndü" ayrıldı
+     (stok, transferler ve tarama sonuç kartı).
+
+ÖLÇÜM (emülatörde):
+  ÖNCE : ~50 sn askıda kalıp hata gösteriyordu
+  SONRA: ~12-25 sn içinde hata gösteriyor
+  ekran: 07-connection-error-after-timeout-fix.png
+
+DÜRÜSTLÜK NOTU — İLK YAKLAŞIMIM YANLIŞTI:
+İlk olarak `isTimeoutError` yazıp ECONNABORTED kontrolü yaptım ve ayrı bir
+"Zaman aşımı" mesajı ekledim. Ekranda bu mesaj hiç çıkmadı. Tahmin yürütmek
+yerine cihazdan gerçek hatayı logladım:
+
+    [TRANSFERS ERROR] code= ERR_NETWORK message= Network Error
+
+React Native'in XHR tabanlı ağ katmanı, erişilemeyen host'u axios'un timeout
+sayacı dolmadan ERR_NETWORK ile sonlandırıyor. Yani Android'de saf bir
+"zaman aşımı" dalı pratikte ULAŞILAMAZ kod olurdu. (Node'da aynı istek
+ECONNABORTED veriyor — ortam farkı; doğrulamadan kabul etseydim yanıltıcı
+bir dal bırakmış olacaktım.)
+
+ÇÖZÜM: `isTimeoutError` yerine `isConnectionError` — ECONNABORTED, ETIMEDOUT
+ve ERR_NETWORK'ü birlikte ele alıyor, tek ve doğru bir mesaj gösteriyor.
+timeout ayarının asıl faydası mesaj değil SÜRE: istek artık askıda kalmıyor.
+
+--- DOĞRULANAMAYAN SINIRLAR (final raporda korunuyor) ---
+1. OPTİK BARKOD TARAMA: Kameranın gerçek bir barkodu çözmesi ve
+   onBarcodeScanned'in ateşlenmesi DOĞRULANMADI. Pixel_8 arka kamerası
+   'virtualscene' (sentetik 3B oda); ekrandaki bir barkod gösterilemiyor.
+   Tek fiziksel "webcam" DroidCam sanal sürücüsü, gerçek kaynak yok.
+   Handler SONRASI tüm akış (istek, cache eşleştirme, kart, hata dalları,
+   tekrar tarama koruması) gerçek koşullarda doğrulandı.
+   "Barkod okutup test ettim" DENMİYOR.
+2. HAPTİK TİTREŞİM: Kod yolu var (Success/Warning/Error); emülatörde titreşim
+   donanımı yok, fiziksel titreşim doğrulanmadı.
+3. FENER (TORCH) IŞIĞI: Buton state/prop tarafı çalışıyor (aktif stile geçiyor);
+   emülatörde LED olmadığı için ışığın kendisi doğrulanmadı.
+
+--- BİLİNEN BOŞLUKLAR (API'ye bugün DOKUNULMADI) ---
+1. GET /inventory — productId filtresi YOK. DTO whitelist'i (forbidNonWhitelisted)
+   bilinmeyen parametreyi 400 ile reddediyor. "Bu şubedeki miktar" bu yüzden
+   şubenin envanter listesi üzerinden client-side eşleştiriliyor. Çok ürünlü
+   şubede ideal değil; API'ye productId filtresi eklenmesi öneriliyor.
+2. GET /products/barcode/:barcode — roller arasında SUPER_ADMIN YOK
+   (FIRM_ADMIN, BRANCH_MANAGER, WAREHOUSE_STAFF, FIELD_STAFF var).
+   Modül geneli deseniyle tutarlı; mobilde SUPER_ADMIN ile test edilmiyor.
+   Tutarlılık için ileride bakılabilir.
+3. GET /movements — branchId filtresi OR mantığı kullanıyor
+   (where.OR = [sourceBranchId, destinationBranchId]). "Gelen kutusu" için
+   yetersiz; client-side destinationBranchId filtresiyle telafi edildi ve
+   ters yön transferiyle kanıtlandı.
+
+--- MOCKUP'TA OLUP UYGULANMAYANLAR (bilinçli) ---
+mobile-tara.png:
+  - Sol geri butonu: "Tara" bir tab, geri dönülecek stack yok
+  - Sonuç kartındaki ikinci buton: görsel kırpılmış, etiketi okunamıyor;
+    hedefi (ürün detayı) mobil planda tanımlı değil -> eklenmedi
+  - Ürün görseli: Product şemasında görsel alanı yok -> Ionicons cube ikonu
+mobile-transferler.png:
+  - "+ Yeni Transfer", filtre chip'leri, Onayla/Reddet/Sevk Et, sayfalama
+    -> hepsi web işi (plan §12.2: mobilde saha personeli yalnızca teslim alır)
+  - Kartta ürün adı: GET /movements liste yanıtı ürün ilişkisi döndürmüyor
+    -> ürün adı uydurulmadı, kalem sayısı + toplam adet gösteriliyor
