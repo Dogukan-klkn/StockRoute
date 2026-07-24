@@ -7,6 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { ScannerFrame } from '@/components/ScannerFrame';
 import { ScanResultCard } from '@/components/ScanResultCard';
+import { isConnectionError } from '@/lib/api-client';
 import { useEffectiveBranch } from '@/hooks/useEffectiveBranch';
 import { useInventory } from '@/hooks/useInventory';
 import { isNotFoundError, useProductByBarcode } from '@/hooks/useProductByBarcode';
@@ -239,6 +240,7 @@ export default function ScanScreen() {
             isLoading={productQuery.isLoading}
             isNotFound={isNotFoundError(productQuery.error)}
             isError={productQuery.isError && !isNotFoundError(productQuery.error)}
+            isConnectionIssue={isConnectionError(productQuery.error)}
             branchMissing={canSelectBranch && !effectiveBranchId}
             onRetry={() => productQuery.refetch()}
             onClose={closeResult}

@@ -18,6 +18,7 @@ import { Logo } from '@/components/Logo';
 import { Avatar } from '@/components/Avatar';
 import { theme } from '@/theme';
 import { useAuthStore } from '@/lib/auth-store';
+import { isConnectionError } from '@/lib/api-client';
 import { useBranchStore } from '@/lib/branch-store';
 import { useBranches, useInventory } from '@/hooks/useInventory';
 import { useEffectiveBranch } from '@/hooks/useEffectiveBranch';
@@ -227,8 +228,16 @@ function StockBody({
     );
   }
   if (query.isError) {
+    // Sunucuya ulaşılamadı ile sunucunun hata döndürmesi ayrı mesajlar.
     return (
-      <EmptyState icon="alert-circle-outline" text="Stok yüklenemedi. Aşağı çekip yenileyin." />
+      <EmptyState
+        icon="alert-circle-outline"
+        text={
+          isConnectionError(query.error)
+            ? 'Sunucuya ulaşılamadı. Bağlantınızı kontrol edip aşağı çekerek yenileyin.'
+            : 'Stok yüklenemedi. Aşağı çekip yenileyin.'
+        }
+      />
     );
   }
   // Arama sonucu boş vs stok boş — ayrı mesajlar.

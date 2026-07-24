@@ -17,6 +17,7 @@ import { Logo } from '@/components/Logo';
 import { Avatar } from '@/components/Avatar';
 import { theme } from '@/theme';
 import { useAuthStore } from '@/lib/auth-store';
+import { isConnectionError } from '@/lib/api-client';
 import { useEffectiveBranch } from '@/hooks/useEffectiveBranch';
 import { useIncomingTransfers, useReceiveTransfer } from '@/hooks/useIncomingTransfers';
 import { formatMovementDate, shortMovementId, type Movement } from '@/lib/types';
@@ -132,10 +133,17 @@ function TransfersBody({
     );
   }
   if (query.isError) {
+    // Sunucuya ulaşılamadı (ağ/zaman aşımı) ile sunucunun hata döndürmesi
+    // kullanıcı için farklı eylemler gerektirir: ilkinde bağlantı, ikincisinde
+    // tekrar deneme. Mesaj buna göre ayrışır.
     return (
       <EmptyState
         icon="cloud-offline-outline"
-        text="Transferler yüklenemedi. Aşağı çekip yenileyin."
+        text={
+          isConnectionError(query.error)
+            ? 'Sunucuya ulaşılamadı. Bağlantınızı kontrol edip aşağı çekerek yenileyin.'
+            : 'Transferler yüklenemedi. Aşağı çekip yenileyin.'
+        }
       />
     );
   }

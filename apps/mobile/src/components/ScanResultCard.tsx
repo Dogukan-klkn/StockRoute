@@ -39,6 +39,8 @@ interface ScanResultCardProps {
   isNotFound: boolean;
   /** Ağ/sunucu hatası (404 dışı). */
   isError: boolean;
+  /** Sunucuya hiç ulaşılamadı mı (ağ/zaman aşımı) — mesaj buna göre değişir. */
+  isConnectionIssue: boolean;
   /** Şube seçici gösteren rolde henüz şube seçilmemiş. */
   branchMissing: boolean;
   onRetry: () => void;
@@ -60,6 +62,7 @@ export function ScanResultCard({
   isLoading,
   isNotFound,
   isError,
+  isConnectionIssue,
   branchMissing,
   onRetry,
   onClose,
@@ -84,8 +87,12 @@ export function ScanResultCard({
         <StatusBlock
           icon="cloud-offline"
           iconColor={theme.colors.danger}
-          title="Bağlantı hatası"
-          description="Ürün bilgisi alınamadı, tekrar deneyin."
+          title={isConnectionIssue ? 'Sunucuya ulaşılamadı' : 'Bağlantı hatası'}
+          description={
+            isConnectionIssue
+              ? 'Bağlantınızı kontrol edip tekrar deneyin.'
+              : 'Ürün bilgisi alınamadı, tekrar deneyin.'
+          }
           barcode={barcode}
         />
       ) : product ? (
