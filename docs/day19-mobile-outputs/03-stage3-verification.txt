@@ -1,0 +1,94 @@
+===== GÜN 19 / AŞAMA 3 — GELEN TRANSFERLER + TESLİM ALMA =====
+Ortam: Pixel_8 emülatör, Expo Go, API+DB docker compose
+
+--- 1) BACKEND SÖZLEŞMESİ (kod okunarak + curl ile teyit) ---
+GET /movements?status=&branchId=   — tüm roller (SUPER_ADMIN dahil)
+POST /movements/:id/receive        — tüm roller (FIELD_STAFF dahil), plan §9.6 ile uyumlu
+Yanıt (MovementListItem): items + sourceBranch + destinationBranch
+  DİKKAT: items ürün ilişkisi İÇERMEZ (yalnızca productId/quantity).
+
+KRİTİK BULGU — branchId filtresi OR:
+  movements.service.ts:155
+    where.OR = [{ sourceBranchId }, { destinationBranchId }]
+  Yani branchId, şubenin KAYNAK *veya* HEDEF olduğu tüm hareketleri döndürür.
+  "Gelen kutusu" için bu yetmez: bu şubeden ÇIKAN sevkiyatlar da gelirdi.
+  ÇÖZÜM: branchId sunucuya yine gönderiliyor (kümeyi daraltmak için), ardından
+  client-side destinationBranchId eşitliğiyle filtreleniyor.
+
+  KANITLANDI (ters yön testi): Merkez -> Kadıköy yönünde ikinci bir transfer
+  oluşturulup sevk edildi (#YI80MJ).
+    API branchId=MERKEZ ile 2 kayıt döndürdü:
+      YI80MJ  İstanbul Merkez Depo -> Kadıköy Şube      (ÇIKAN)
+      B6TKN8  Kadıköy Şube -> İstanbul Merkez Depo      (GELEN)
+    Mobil ekran YALNIZCA 1 kart gösterdi: #B6TKN8.
+    => Çıkan sevkiyat teslim listesinde görünmüyor.  ekran: 05-transfers-list.png
+
+--- 2) TEST VERİSİ (API üzerinden, encoding dersi uygulandı) ---
+Tenant'ta tek şube vardı; kaynak şube gerekliydi:
+  POST /branches -> "Kadıköy Şube" (IST-KADIKOY)
+  Gövde Node ile UTF-8 dosyaya yazılıp --data-binary ile gönderildi.
+  Sonuç: "Kadıköy Şube" / "İstanbul" — Türkçe karakterler DOĞRU (Aşama 2 dersi işledi).
+Kaynak şubeye stok: Çay 200, Kahve 200 (POST /inventory/adjust)
+
+GERÇEK YAŞAM DÖNGÜSÜ (kısayol kullanılmadı):
+  POST /movements                -> PENDING     (Çay 50 + Kahve 30)
+  POST /movements/:id/approve    -> APPROVED
+  POST /movements/:id/ship       -> IN_TRANSIT  => mobilde göründü
+
+--- 3) EKRAN DALLARI ---
+[Liste]        #B6TKN8 · "Yolda" chip (statusColors.IN_TRANSIT indigo) ·
+               Kadıköy Şube -> İstanbul Merkez Depo · 2 kalem · 80 adet · tarih
+               ekran: 05-transfers-list.png
+[Onay]         Alert: transfer no + kalem sayısı + hedef şube adı
+               ekran: 05b-transfer-receive-confirm.png
+[Teslim sonrası] Transfer listeden kayboldu (artık RECEIVED), boş durum göründü
+               ekran: 05c-transfers-empty.png  ("Teslim bekleyen transfer yok.")
+[Ağ hatası]    API kapalı + cache yok (soğuk açılış) -> "Transferler yüklenemedi.
+               Aşağı çekip yenileyin."
+               ekran: 05d-transfers-network-error.png
+[Pull-to-refresh] Çalışıyor (liste tazelendi, ters yön transferi eklendikten sonra
+               da liste hâlâ tek kart gösterdi — filtre doğrulaması).
+
+--- 4) UÇTAN UCA ZİNCİR (aynı oturumda, gerçek kanıt) ---
+Teslim ÖNCESİ (İstanbul Merkez Depo):  Çay 120 · Kahve 65
+Mobilden "Teslim Al" -> onay -> başarı
+Teslim SONRASI (Stok sekmesi, aynı oturum): Çay 165 · Kahve 95
+  ekran: 06-stock-after-receive.png
+
+Kahve: 65 -> 95  = +30  (transferdeki miktar birebir) ✓
+Çay:  120 -> 165 = +45  (transferdeki miktar 50 idi)
+
+  +45 vs +50 FARKI AÇIKLANDI — bu bir hata DEĞİL:
+  Filtre testi için oluşturduğum ters yön transferi (#YI80MJ, Merkez -> Kadıköy,
+  Çay 5 adet) SEVK EDİLDİĞİNDE kaynak (Merkez) stoğundan 5 düşmüştü.
+  Yani: 120 + 50 (teslim) - 5 (sevk) = 165. Aritmetik birebir doğru.
+  Kahve'de ters yön transferi olmadığı için fark tam +30 çıktı.
+  => Stok mutasyonları backend'de doğru çalışıyor; TanStack Query invalidate
+     sonrası mobil ekran güncel değeri gösteriyor.
+
+--- 5) KAPSAM DIŞI BIRAKILANLAR (bilinçli, mockup'ta var) ---
+mobile-transferler.png'de bulunan ama uygulanmayanlar:
+  "+ Yeni Transfer" butonu       -> transfer oluşturma web işi
+  Filtre chip'leri (Tümü/Beklemede/Onaylandı + sayaçlar)
+                                 -> mobil yalnızca IN_TRANSIT gösteriyor
+  "Onayla"/"Reddet"/"Sevk Et"    -> yönetsel aksiyonlar, web tarafında
+  Sayfalama (142 transfer, 1..21) -> gelen kutusu küçük, gerek yok
+  Kartta ürün adı + görseli      -> liste yanıtı ürün ilişkisi döndürmüyor;
+                                    ürün adı UYDURULMADI, yerine kalem sayısı
+                                    ve toplam adet gösteriliyor.
+Plan §12.2 ile uyumlu: mobilde saha personeli YALNIZCA teslim alır.
+
+--- 6) SINIRLAR / NOTLAR ---
+- Haptik (teslim başarılı -> Success, hata -> Error) kod yolu var; emülatörde
+  titreşim donanımı olmadığı için fiziksel titreşim doğrulanmadı.
+- Ağ hatası ekranının görünmesi ~50 sn sürdü: apiClient'ta timeout tanımlı değil,
+  axios kapalı sunucuyu beklemede kalıyor. İşlevsel bir hata değil ama mobilde
+  kötü bir UX; api-client'a timeout eklenmesi önerilir (bugün DOKUNULMADI).
+- Çoklu teslim (aynı anda birden fazla kart) engellendi: bir teslim sürerken
+  diğer kartların butonu disabled.
+- #YI80MJ (ters yön) transferi bilinçli olarak IN_TRANSIT bırakıldı: filtre
+  davranışının canlı kanıtı ve Gün 20 real-time testi için hazır veri.
+
+--- 7) typecheck / lint ---
+pnpm --filter mobile run typecheck : PASS
+pnpm --filter mobile run lint      : PASS
